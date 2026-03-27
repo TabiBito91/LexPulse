@@ -1,7 +1,5 @@
-import type { NextConfig } from 'next';
-
-const nextConfig: NextConfig = {
-  // Enforce HTTPS redirects in production
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   async headers() {
     return [
       {

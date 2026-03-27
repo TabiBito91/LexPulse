@@ -12,7 +12,7 @@
     "@anthropic-ai/sdk": "^0.32.1",
     "@clerk/nextjs": "^6.0.0",
     "@supabase/supabase-js": "^2.45.0",
-    "next": "14.2.25",
+    "next": "^15.2.3",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "server-only": "^0.0.1"
@@ -23,7 +23,7 @@
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.25",
+    "eslint-config-next": "^15.2.3",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3"

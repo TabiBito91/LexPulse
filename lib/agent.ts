@@ -65,13 +65,8 @@ export async function generateDigest(apiKey: string): Promise<DigestContent> {
     model: 'claude-sonnet-4-6',
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
-    tools: [
-      {
-        type: 'web_search_20250305',
-        name: 'web_search',
-        max_uses: 12, // up to 3 searches per topic area
-      } as Parameters<typeof client.messages.create>[0]['tools'][0],
-    ],
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 12 }] as any,
     tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: buildUserPrompt(weekOf) }],
   });

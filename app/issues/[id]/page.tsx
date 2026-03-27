@@ -4,14 +4,15 @@ import { getDigest } from '@/lib/supabase';
 import DigestReader from '@/components/DigestReader';
 
 interface Props {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function IssuePage({ params }: Props) {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
-  const digest = await getDigest(params.id, userId);
+  const { id } = await params;
+  const digest = await getDigest(id, userId);
   if (!digest) notFound();
 
   return (

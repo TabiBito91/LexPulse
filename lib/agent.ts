@@ -71,11 +71,18 @@ export async function generateDigest(apiKey: string): Promise<DigestContent> {
     messages: [{ role: 'user', content: buildUserPrompt(weekOf) }],
   });
 
+  // Log response shape for diagnostics (no sensitive data)
+  console.log('[agent] stop_reason:', response.stop_reason);
+  console.log('[agent] content block types:', response.content.map((b) => b.type));
+
   // Extract the final text response (after tool use rounds)
   const textBlock = response.content.findLast((b) => b.type === 'text');
   if (!textBlock || textBlock.type !== 'text') {
     throw new Error('Agent returned no text content');
   }
+
+  // Log first 500 chars of raw response to diagnose JSON issues
+  console.log('[agent] raw text (first 500):', textBlock.text.slice(0, 500));
 
   // Parse and validate the JSON structure
   // Strip markdown code fences if Claude wrapped the response (e.g. ```json ... ```)

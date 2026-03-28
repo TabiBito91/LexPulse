@@ -15,8 +15,15 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const scheduledUsers = await getUsersScheduledNow();
-  console.log(`[cron] ${scheduledUsers.length} user(s) scheduled for this hour`);
+  let scheduledUsers: Array<{ clerk_id: string; notify_email: string | null }>;
+  try {
+    scheduledUsers = await getUsersScheduledNow();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[cron] failed to fetch scheduled users:', msg);
+    return NextResponse.json({ error: 'db_error' }, { status: 500 });
+  }
+  console.log(`[cron] ${scheduledUsers.length} user(s) scheduled for this slot`);
 
   const results: Array<{ clerkId: string; status: string }> = [];
 

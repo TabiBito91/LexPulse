@@ -62,8 +62,11 @@ export async function POST(req: Request) {
   let digest;
   try {
     digest = await generateDigest(resolvedApiKey);
-  } catch {
-    // SECURITY: Never forward raw Anthropic errors — they may reference the API key
+  } catch (err) {
+    // SECURITY: log error type/message only — never log the API key
+    const errMsg = err instanceof Error ? err.message : String(err);
+    const errName = err instanceof Error ? err.constructor.name : 'Unknown';
+    console.error('[generate] agent error:', errName, errMsg);
     return NextResponse.json({ error: 'generation_failed' }, { status: 502 });
   } finally {
     // Explicitly clear the key reference (helps GC; belt-and-suspenders)

@@ -17,7 +17,7 @@ For each topic area provided, identify 3–5 high-signal items. Each item must i
 Focus on: court decisions, regulatory actions, agency guidance, notable legislation, and enforcement trends.
 Exclude: opinion pieces, listicles, and items older than 7 days.
 
-Respond ONLY with valid JSON matching this schema exactly:
+Respond ONLY with raw valid JSON — no markdown, no code fences, no explanation. Your entire response must be parseable by JSON.parse(). The schema:
 {
   "sections": [
     {
@@ -78,9 +78,14 @@ export async function generateDigest(apiKey: string): Promise<DigestContent> {
   }
 
   // Parse and validate the JSON structure
+  // Strip markdown code fences if Claude wrapped the response (e.g. ```json ... ```)
+  let jsonText = textBlock.text.trim();
+  const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) jsonText = fenceMatch[1].trim();
+
   let parsed: { sections: Array<{ topic: string; items: unknown[] }> };
   try {
-    parsed = JSON.parse(textBlock.text);
+    parsed = JSON.parse(jsonText);
   } catch {
     throw new Error('Agent returned invalid JSON');
   }

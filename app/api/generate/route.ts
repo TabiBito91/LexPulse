@@ -102,7 +102,7 @@ async function handleGenerate(req: Request) {
       // Use custom notify_email if set, otherwise fall back to Clerk account email
       let toEmail = settings.notify_email;
       if (!toEmail) {
-        const user = await clerkClient().users.getUser(resolvedClerkId);
+        const user = await (await clerkClient()).users.getUser(resolvedClerkId);
         toEmail = user.emailAddresses[0]?.emailAddress ?? null;
       }
       if (toEmail) {

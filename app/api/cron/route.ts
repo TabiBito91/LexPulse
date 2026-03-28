@@ -48,7 +48,7 @@ export async function GET(req: Request) {
       try {
         let toEmail = notify_email;
         if (!toEmail) {
-          const user = await clerkClient().users.getUser(clerk_id);
+          const user = await (await clerkClient()).users.getUser(clerk_id);
           toEmail = user.emailAddresses[0]?.emailAddress ?? null;
         }
         if (toEmail) await sendDigestEmail(toEmail, digest);

@@ -32,7 +32,26 @@ export default function CategorySection({ section }: CategorySectionProps) {
               <span className="font-medium text-gray-600">Why it matters: </span>
               {item.significance}
             </p>
-            <p className="text-xs text-gray-400">{item.source}</p>
+            <div className="flex items-center gap-2 text-xs text-gray-400">
+              {item.url ? (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline hover:text-gray-600"
+                >
+                  {item.source}
+                </a>
+              ) : (
+                <span>{item.source}</span>
+              )}
+              {item.publishedDate && (
+                <>
+                  <span>·</span>
+                  <span>{item.publishedDate}</span>
+                </>
+              )}
+            </div>
           </article>
         ))}
       </div>

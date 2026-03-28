@@ -12,7 +12,8 @@ For each topic area provided, identify 3–5 high-signal items. Each item must i
 - summary: 2–3 sentences describing what happened
 - significance: 1–2 sentences on why this matters to US legal practitioners
 - source: the publication, court, or agency name
-- url: the direct URL to the source (required)
+- url: the direct URL to the original article or document (required — do not omit)
+- publishedDate: the date the article or decision was published, formatted as "Month D, YYYY" (e.g. "March 27, 2026")
 
 Focus on: court decisions, regulatory actions, agency guidance, notable legislation, and enforcement trends.
 Exclude: opinion pieces, listicles, and items older than 7 days.
@@ -26,7 +27,8 @@ function buildUserPrompt(weekOf: string): string {
 Cover these four topic areas:
 ${topicList}
 
-Search for the most recent and significant developments in each area from the past 7 days.`;
+Search for the most recent and significant developments in each area from the past 7 days.
+Ensure every item has a direct URL to the source and the date it was published.`;
 }
 
 function getWeekOf(): string {
@@ -63,9 +65,10 @@ const CREATE_DIGEST_TOOL = {
                   summary: { type: 'string' },
                   significance: { type: 'string' },
                   source: { type: 'string' },
-                  url: { type: 'string' },
+                  url: { type: 'string', description: 'Direct URL to the original article or document' },
+                  publishedDate: { type: 'string', description: 'Publication date, e.g. "March 27, 2026"' },
                 },
-                required: ['title', 'summary', 'significance', 'source'],
+                required: ['title', 'summary', 'significance', 'source', 'url', 'publishedDate'],
               },
               minItems: 3,
               maxItems: 5,
@@ -95,7 +98,6 @@ export async function generateDigest(apiKey: string): Promise<DigestContent> {
       { type: 'web_search_20250305', name: 'web_search', max_uses: 12 } as any,
       CREATE_DIGEST_TOOL as any,
     ],
-    // Force Claude to call create_digest as its final action
     tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: buildUserPrompt(weekOf) }],
   });
@@ -112,13 +114,14 @@ export async function generateDigest(apiKey: string): Promise<DigestContent> {
     throw new Error('Agent did not call create_digest tool');
   }
 
-  const input = toolUseBlock.input as { sections: Array<{ topic: string; items: Array<Record<string, string>> }> };
+  const input = toolUseBlock.input as {
+    sections: Array<{ topic: string; items: Array<Record<string, string>> }>;
+  };
 
   if (!Array.isArray(input.sections)) {
     throw new Error('Agent create_digest input missing sections array');
   }
 
-  // Map sections
   const sections: DigestSection[] = input.sections
     .filter((s) => TOPIC_AREAS.includes(s.topic as TopicArea))
     .map((s) => ({
@@ -128,7 +131,8 @@ export async function generateDigest(apiKey: string): Promise<DigestContent> {
         summary: item.summary ?? '',
         significance: item.significance ?? '',
         source: item.source ?? '',
-        url: item.url,
+        url: item.url ?? '',
+        publishedDate: item.publishedDate ?? '',
       })),
     }));
 

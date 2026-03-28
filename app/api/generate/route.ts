@@ -1,8 +1,9 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
-import { getUserKey, insertDigest } from '@/lib/supabase';
+import { getUserKey, getUserSettings, insertDigest } from '@/lib/supabase';
+import { sendDigestEmail } from '@/lib/email';
 
 // Allow up to 5 minutes for web search + digest generation (requires Vercel Pro)
 export const maxDuration = 300;
@@ -85,21 +86,35 @@ async function handleGenerate(req: Request) {
     resolvedApiKey = '';
   }
 
-  // ── Optional verification agent ───────────────────────────────────────────
-  let verificationScore: number | undefined;
-  // (ENABLE_VERIFICATION support omitted for now — placeholder)
-
   // ── Persist ───────────────────────────────────────────────────────────────
+  let savedId: string;
   try {
-    const saved = await insertDigest(
-      resolvedClerkId,
-      digest,
-      keyHint,
-      verificationScore,
-    );
-    return NextResponse.json({ id: saved.id }, { status: 200 });
+    const saved = await insertDigest(resolvedClerkId, digest, keyHint);
+    savedId = saved.id;
   } catch {
     return NextResponse.json({ error: 'storage_failed' }, { status: 500 });
   }
+
+  // ── Send email if enabled ─────────────────────────────────────────────────
+  try {
+    const settings = await getUserSettings(resolvedClerkId);
+    if (settings?.email_enabled) {
+      // Use custom notify_email if set, otherwise fall back to Clerk account email
+      let toEmail = settings.notify_email;
+      if (!toEmail) {
+        const user = await clerkClient().users.getUser(resolvedClerkId);
+        toEmail = user.emailAddresses[0]?.emailAddress ?? null;
+      }
+      if (toEmail) {
+        await sendDigestEmail(toEmail, digest);
+      }
+    }
+  } catch (err) {
+    // Email failure is non-fatal — digest was already saved
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[generate] email send failed (non-fatal):', msg);
+  }
+
+  return NextResponse.json({ id: savedId }, { status: 200 });
 }
 

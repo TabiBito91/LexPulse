@@ -2,7 +2,7 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
-import type { Digest, UserKey } from './types';
+import type { Digest, UserKey, UserSettings } from './types';
 
 function getServiceClient() {
   const url = process.env.SUPABASE_URL;
@@ -80,6 +80,49 @@ export async function getDigest(
     .maybeSingle();
   if (error) throw new Error('Failed to fetch digest');
   return data;
+}
+
+// ── User settings helpers ───────────────────────────────────────────────────
+
+export async function getUserSettings(clerkId: string): Promise<UserSettings | null> {
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from('user_settings')
+    .select('*')
+    .eq('clerk_id', clerkId)
+    .maybeSingle();
+  if (error) throw new Error('Failed to fetch user settings');
+  return data;
+}
+
+export async function upsertUserSettings(
+  clerkId: string,
+  settings: Partial<Omit<UserSettings, 'id' | 'clerk_id' | 'created_at' | 'updated_at'>>,
+): Promise<void> {
+  const db = getServiceClient();
+  const { error } = await db.from('user_settings').upsert(
+    { clerk_id: clerkId, ...settings, updated_at: new Date().toISOString() },
+    { onConflict: 'clerk_id' },
+  );
+  if (error) throw new Error('Failed to save user settings');
+}
+
+// Returns all users who are scheduled to receive a digest right now (UTC day + hour match)
+export async function getUsersScheduledNow(): Promise<
+  Array<{ clerk_id: string; notify_email: string | null }>
+> {
+  const db = getServiceClient();
+  const now = new Date();
+  const day = now.getUTCDay();
+  const hour = now.getUTCHours();
+  const { data, error } = await db
+    .from('user_settings')
+    .select('clerk_id, notify_email')
+    .eq('email_enabled', true)
+    .eq('digest_day', day)
+    .eq('digest_hour', hour);
+  if (error) throw new Error('Failed to fetch scheduled users');
+  return data ?? [];
 }
 
 export async function insertDigest(

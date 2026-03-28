@@ -37,3 +37,20 @@ ALTER TABLE digests ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY digests_owner ON digests
   USING (clerk_id = auth.jwt() ->> 'sub');
+
+-- ── user_settings ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_settings (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clerk_id     text NOT NULL UNIQUE,
+  email_enabled boolean NOT NULL DEFAULT false,
+  notify_email text,              -- null = use Clerk account email
+  digest_day   integer NOT NULL DEFAULT 1,   -- 0=Sun … 6=Sat (UTC)
+  digest_hour  integer NOT NULL DEFAULT 9,   -- 0–23 UTC
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  updated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY user_settings_owner ON user_settings
+  USING (clerk_id = auth.jwt() ->> 'sub');

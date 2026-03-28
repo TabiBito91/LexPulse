@@ -8,6 +8,18 @@ import { getUserKey, insertDigest } from '@/lib/supabase';
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  console.log('[generate] POST handler started');
+  try {
+    return await handleGenerate(req);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    const name = err instanceof Error ? err.constructor.name : 'Unknown';
+    console.error('[generate] unhandled top-level error:', name, msg);
+    return NextResponse.json({ error: 'internal_error' }, { status: 500 });
+  }
+}
+
+async function handleGenerate(req: Request) {
   // ── Determine caller identity ──────────────────────────────────────────────
   const authHeader = req.headers.get('authorization') ?? '';
   const isCron =
@@ -90,3 +102,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'storage_failed' }, { status: 500 });
   }
 }
+

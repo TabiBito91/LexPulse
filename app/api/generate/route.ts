@@ -4,6 +4,9 @@ import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
 import { getUserKey, insertDigest } from '@/lib/supabase';
 
+// Allow up to 5 minutes for web search + digest generation (requires Vercel Pro)
+export const maxDuration = 300;
+
 export async function POST(req: Request) {
   // ── Determine caller identity ──────────────────────────────────────────────
   const authHeader = req.headers.get('authorization') ?? '';

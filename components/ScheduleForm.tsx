@@ -9,7 +9,12 @@ const DAYS = [
 const HOURS = Array.from({ length: 24 }, (_, i) => {
   const period = i < 12 ? 'AM' : 'PM';
   const hour = i === 0 ? 12 : i > 12 ? i - 12 : i;
-  return { value: i, label: `${hour}:00 ${period} UTC` };
+  return { value: i, label: `${hour} ${period} UTC` };
+});
+
+const MINUTES = Array.from({ length: 12 }, (_, i) => {
+  const m = i * 5;
+  return { value: m, label: `:${String(m).padStart(2, '0')}` };
 });
 
 interface ScheduleFormProps {
@@ -18,6 +23,7 @@ interface ScheduleFormProps {
     notifyEmail: string;
     digestDay: number;
     digestHour: number;
+    digestMinute: number;
   };
 }
 
@@ -26,6 +32,7 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
   const [notifyEmail, setNotifyEmail] = useState(initial.notifyEmail);
   const [digestDay, setDigestDay] = useState(initial.digestDay);
   const [digestHour, setDigestHour] = useState(initial.digestHour);
+  const [digestMinute, setDigestMinute] = useState(initial.digestMinute);
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   async function handleSave() {
@@ -34,7 +41,7 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
       const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailEnabled, notifyEmail: notifyEmail || null, digestDay, digestHour }),
+        body: JSON.stringify({ emailEnabled, notifyEmail: notifyEmail || null, digestDay, digestHour, digestMinute }),
       });
       setStatus(res.ok ? 'saved' : 'error');
       if (res.ok) setTimeout(() => setStatus('idle'), 2000);
@@ -84,14 +91,27 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
               </select>
             </div>
 
-            <div className="space-y-1 flex-1">
-              <label className="text-xs text-gray-500">Time (UTC)</label>
+            <div className="space-y-1">
+              <label className="text-xs text-gray-500">Hour (UTC)</label>
               <select
                 value={digestHour}
                 onChange={(e) => setDigestHour(Number(e.target.value))}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {HOURS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-xs text-gray-500">Minute</label>
+              <select
+                value={digestMinute}
+                onChange={(e) => setDigestMinute(Number(e.target.value))}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {MINUTES.map(({ value, label }) => (
                   <option key={value} value={value}>{label}</option>
                 ))}
               </select>

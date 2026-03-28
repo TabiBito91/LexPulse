@@ -44,8 +44,9 @@ CREATE TABLE IF NOT EXISTS user_settings (
   clerk_id     text NOT NULL UNIQUE,
   email_enabled boolean NOT NULL DEFAULT false,
   notify_email text,              -- null = use Clerk account email
-  digest_day   integer NOT NULL DEFAULT 1,   -- 0=Sun … 6=Sat (UTC)
-  digest_hour  integer NOT NULL DEFAULT 9,   -- 0–23 UTC
+  digest_day    integer NOT NULL DEFAULT 1,   -- 0=Sun … 6=Sat (UTC)
+  digest_hour   integer NOT NULL DEFAULT 9,   -- 0–23 UTC
+  digest_minute integer NOT NULL DEFAULT 0,   -- 0, 5, 10 … 55
   created_at   timestamptz NOT NULL DEFAULT now(),
   updated_at   timestamptz NOT NULL DEFAULT now()
 );

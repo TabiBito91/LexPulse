@@ -27,6 +27,7 @@ export default async function SettingsPage() {
           notifyEmail: settings?.notify_email ?? '',
           digestDay: settings?.digest_day ?? 1,
           digestHour: settings?.digest_hour ?? 9,
+          digestMinute: settings?.digest_minute ?? 0,
         }}
       />
     </div>

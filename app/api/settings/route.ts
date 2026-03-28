@@ -13,6 +13,7 @@ export async function POST(req: Request) {
     notifyEmail: string | null;
     digestDay: number;
     digestHour: number;
+    digestMinute: number;
   };
 
   try {
@@ -21,12 +22,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
   }
 
-  const { emailEnabled, notifyEmail, digestDay, digestHour } = body;
+  const { emailEnabled, notifyEmail, digestDay, digestHour, digestMinute } = body;
 
   if (
     typeof emailEnabled !== 'boolean' ||
     digestDay < 0 || digestDay > 6 ||
-    digestHour < 0 || digestHour > 23
+    digestHour < 0 || digestHour > 23 ||
+    digestMinute < 0 || digestMinute > 55 || digestMinute % 5 !== 0
   ) {
     return NextResponse.json({ error: 'invalid_values' }, { status: 400 });
   }
@@ -37,6 +39,7 @@ export async function POST(req: Request) {
       notify_email: notifyEmail,
       digest_day: digestDay,
       digest_hour: digestHour,
+      digest_minute: digestMinute,
     });
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch {

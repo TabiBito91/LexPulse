@@ -57,6 +57,7 @@ export interface UserSettings {
   notify_email: string | null;   // null = use Clerk account email
   digest_day: number;            // 0=Sunday … 6=Saturday (UTC)
   digest_hour: number;           // 0–23 UTC
+  digest_minute: number;         // 0, 5, 10 … 55
   created_at: string;
   updated_at: string;
 }

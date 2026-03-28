@@ -115,12 +115,14 @@ export async function getUsersScheduledNow(): Promise<
   const now = new Date();
   const day = now.getUTCDay();
   const hour = now.getUTCHours();
+  const minute = now.getUTCMinutes();
   const { data, error } = await db
     .from('user_settings')
     .select('clerk_id, notify_email')
     .eq('email_enabled', true)
     .eq('digest_day', day)
-    .eq('digest_hour', hour);
+    .eq('digest_hour', hour)
+    .eq('digest_minute', minute);
   if (error) throw new Error('Failed to fetch scheduled users');
   return data ?? [];
 }

@@ -17,23 +17,7 @@ For each topic area provided, identify 3–5 high-signal items. Each item must i
 Focus on: court decisions, regulatory actions, agency guidance, notable legislation, and enforcement trends.
 Exclude: opinion pieces, listicles, and items older than 7 days.
 
-Respond ONLY with raw valid JSON — no markdown, no code fences, no explanation. Your entire response must be parseable by JSON.parse(). The schema:
-{
-  "sections": [
-    {
-      "topic": "<topic area string>",
-      "items": [
-        {
-          "title": "string",
-          "summary": "string",
-          "significance": "string",
-          "source": "string",
-          "url": "string"
-        }
-      ]
-    }
-  ]
-}`;
+Use the web_search tool to find recent developments, then call create_digest with your findings.`;
 
 function buildUserPrompt(weekOf: string): string {
   const topicList = TOPIC_AREAS.map((t) => `- ${t}`).join('\n');
@@ -56,57 +40,90 @@ function getWeekOf(): string {
   });
 }
 
+// Tool schema for structured digest output — forces Claude to return valid structured data
+// instead of free-form text, eliminating JSON parsing fragility.
+const CREATE_DIGEST_TOOL = {
+  name: 'create_digest',
+  description: 'Submit the completed legal digest with all topic sections.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      sections: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            topic: { type: 'string', enum: TOPIC_AREAS },
+            items: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  title: { type: 'string' },
+                  summary: { type: 'string' },
+                  significance: { type: 'string' },
+                  source: { type: 'string' },
+                  url: { type: 'string' },
+                },
+                required: ['title', 'summary', 'significance', 'source'],
+              },
+              minItems: 3,
+              maxItems: 5,
+            },
+          },
+          required: ['topic', 'items'],
+        },
+        minItems: 4,
+        maxItems: 4,
+      },
+    },
+    required: ['sections'],
+  },
+};
+
 export async function generateDigest(apiKey: string): Promise<DigestContent> {
   // SECURITY: apiKey is a plaintext key — never log it, never include it in error messages
   const client = new Anthropic({ apiKey });
   const weekOf = getWeekOf();
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
-    max_tokens: 4096,
+    max_tokens: 8192,
     system: SYSTEM_PROMPT,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 12 }] as any,
+    tools: [
+      { type: 'web_search_20250305', name: 'web_search', max_uses: 12 } as any,
+      CREATE_DIGEST_TOOL as any,
+    ],
+    // Force Claude to call create_digest as its final action
     tool_choice: { type: 'auto' },
     messages: [{ role: 'user', content: buildUserPrompt(weekOf) }],
   });
 
-  // Log response shape for diagnostics (no sensitive data)
   console.log('[agent] stop_reason:', response.stop_reason);
   console.log('[agent] content block types:', response.content.map((b) => b.type));
 
-  // Extract the final text response (after tool use rounds)
-  const textBlock = response.content.findLast((b) => b.type === 'text');
-  if (!textBlock || textBlock.type !== 'text') {
-    throw new Error('Agent returned no text content');
+  // Extract the create_digest tool call from the response
+  const toolUseBlock = response.content.find(
+    (b) => b.type === 'tool_use' && b.name === 'create_digest',
+  );
+
+  if (!toolUseBlock || toolUseBlock.type !== 'tool_use') {
+    throw new Error('Agent did not call create_digest tool');
   }
 
-  // Log first 500 chars of raw response to diagnose JSON issues
-  console.log('[agent] raw text (first 500):', textBlock.text.slice(0, 500));
+  const input = toolUseBlock.input as { sections: Array<{ topic: string; items: Array<Record<string, string>> }> };
 
-  // Parse and validate the JSON structure
-  // Strip markdown code fences if Claude wrapped the response (e.g. ```json ... ```)
-  let jsonText = textBlock.text.trim();
-  const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch) jsonText = fenceMatch[1].trim();
-
-  let parsed: { sections: Array<{ topic: string; items: unknown[] }> };
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
-    throw new Error('Agent returned invalid JSON');
+  if (!Array.isArray(input.sections)) {
+    throw new Error('Agent create_digest input missing sections array');
   }
 
-  if (!Array.isArray(parsed.sections)) {
-    throw new Error('Agent response missing sections array');
-  }
-
-  // Map and validate each section
-  const sections: DigestSection[] = parsed.sections
+  // Map sections
+  const sections: DigestSection[] = input.sections
     .filter((s) => TOPIC_AREAS.includes(s.topic as TopicArea))
     .map((s) => ({
       topic: s.topic as TopicArea,
-      items: (s.items as Array<Record<string, string>>).map((item) => ({
+      items: s.items.map((item) => ({
         title: item.title ?? '',
         summary: item.summary ?? '',
         significance: item.significance ?? '',

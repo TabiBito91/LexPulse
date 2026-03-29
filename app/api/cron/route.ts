@@ -17,7 +17,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  let scheduledUsers: Array<{ clerk_id: string; notify_email: string | null; next_run_at: string; digest_frequency: string }>;
+  let scheduledUsers: Array<{ clerk_id: string; notify_email: string | null; notify_emails: string[] | null; next_run_at: string; digest_frequency: string }>;
   try {
     scheduledUsers = await getUsersScheduledNow();
   } catch (err) {

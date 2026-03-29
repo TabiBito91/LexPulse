@@ -109,13 +109,13 @@ export async function upsertUserSettings(
 
 // Returns all users whose next_run_at is at or before now.
 export async function getUsersScheduledNow(): Promise<
-  Array<{ clerk_id: string; notify_email: string | null; next_run_at: string; digest_frequency: DigestFrequency }>
+  Array<{ clerk_id: string; notify_email: string | null; notify_emails: string[]; next_run_at: string; digest_frequency: DigestFrequency }>
 > {
   const db = getServiceClient();
   const now = new Date().toISOString();
   const { data, error } = await db
     .from('user_settings')
-    .select('clerk_id, notify_email, next_run_at, digest_frequency')
+    .select('clerk_id, notify_email, notify_emails, next_run_at, digest_frequency')
     .eq('email_enabled', true)
     .not('next_run_at', 'is', null)
     .lte('next_run_at', now);

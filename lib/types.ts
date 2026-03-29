@@ -56,7 +56,8 @@ export interface UserSettings {
   id: string;
   clerk_id: string;
   email_enabled: boolean;
-  notify_email: string | null;        // null = use Clerk account email
+  notify_email: string | null;        // legacy single email — superseded by notify_emails
+  notify_emails: string[];            // recipients; falls back to Clerk account email if empty
   digest_day: number;                 // 0=Sunday … 6=Saturday (in user's timezone)
   digest_hour: number;                // 0–23 (in user's timezone)
   digest_minute: number;              // 0, 5, 10 … 55

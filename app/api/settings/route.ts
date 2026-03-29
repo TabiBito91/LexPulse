@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
   let body: {
     emailEnabled: boolean;
-    notifyEmail: string | null;
+    notifyEmails: string[];
     digestDay: number;
     digestHour: number;
     digestMinute: number;
@@ -37,10 +37,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'invalid_request' }, { status: 400 });
   }
 
-  const { emailEnabled, notifyEmail, digestDay, digestHour, digestMinute, timezone, digestFrequency } = body;
+  const { emailEnabled, notifyEmails, digestDay, digestHour, digestMinute, timezone, digestFrequency } = body;
 
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (
     typeof emailEnabled !== 'boolean' ||
+    !Array.isArray(notifyEmails) || notifyEmails.some(e => !emailRegex.test(e)) ||
     digestDay < 0 || digestDay > 6 ||
     digestHour < 0 || digestHour > 23 ||
     digestMinute < 0 || digestMinute > 55 || digestMinute % 5 !== 0 ||
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
   try {
     await upsertUserSettings(userId, {
       email_enabled: emailEnabled,
-      notify_email: notifyEmail,
+      notify_emails: notifyEmails,
       digest_day: digestDay,
       digest_hour: digestHour,
       digest_minute: digestMinute,

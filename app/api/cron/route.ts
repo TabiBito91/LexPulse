@@ -29,7 +29,7 @@ export async function GET(req: Request) {
 
   const results: Array<{ clerkId: string; status: string }> = [];
 
-  for (const { clerk_id, notify_email, next_run_at, digest_frequency } of scheduledUsers) {
+  for (const { clerk_id, notify_email, notify_emails, next_run_at, digest_frequency } of scheduledUsers) {
     try {
       // Fetch and decrypt user's API key
       const userKey = await getUserKey(clerk_id);
@@ -68,12 +68,15 @@ export async function GET(req: Request) {
 
       // Send email
       try {
-        let toEmail = notify_email;
-        if (!toEmail) {
-          const user = await (await clerkClient()).users.getUser(clerk_id);
-          toEmail = user.emailAddresses[0]?.emailAddress ?? null;
+        let recipients: string[] = notify_emails?.length ? notify_emails : [];
+        if (recipients.length === 0) {
+          // Fall back to legacy single email, then Clerk account email
+          const fallback = notify_email
+            ?? (await (await clerkClient()).users.getUser(clerk_id)).emailAddresses[0]?.emailAddress
+            ?? null;
+          if (fallback) recipients = [fallback];
         }
-        if (toEmail) await sendDigestEmail(toEmail, digest);
+        if (recipients.length > 0) await sendDigestEmail(recipients, digest);
       } catch (emailErr) {
         const msg = emailErr instanceof Error ? emailErr.message : String(emailErr);
         console.error(`[cron] email failed for ${clerk_id} (non-fatal):`, msg);

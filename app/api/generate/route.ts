@@ -102,15 +102,15 @@ async function handleGenerate(req: Request) {
   // ── Send email if enabled ─────────────────────────────────────────────────
   try {
     if (settings?.email_enabled) {
-      // Use custom notify_email if set, otherwise fall back to Clerk account email
-      let toEmail = settings.notify_email;
-      if (!toEmail) {
-        const user = await (await clerkClient()).users.getUser(resolvedClerkId);
-        toEmail = user.emailAddresses[0]?.emailAddress ?? null;
+      let recipients: string[] = settings.notify_emails?.length ? settings.notify_emails : [];
+      if (recipients.length === 0) {
+        // Fall back to legacy single email, then Clerk account email
+        const fallback = settings.notify_email
+          ?? (await (await clerkClient()).users.getUser(resolvedClerkId)).emailAddresses[0]?.emailAddress
+          ?? null;
+        if (fallback) recipients = [fallback];
       }
-      if (toEmail) {
-        await sendDigestEmail(toEmail, digest);
-      }
+      if (recipients.length > 0) await sendDigestEmail(recipients, digest);
     }
   } catch (err) {
     // Email failure is non-fatal — digest was already saved

@@ -75,13 +75,15 @@ function buildEmailHtml(content: DigestContent): string {
 }
 
 export async function sendDigestEmail(
-  toEmail: string,
+  toEmails: string | string[],
   content: DigestContent,
 ): Promise<void> {
+  const recipients = Array.isArray(toEmails) ? toEmails : [toEmails];
+  if (recipients.length === 0) throw new Error('No recipients provided');
   const resend = getResendClient();
   const { error } = await resend.emails.send({
     from: getFromAddress(),
-    to: toEmail,
+    to: recipients,
     subject: `LexPulse — ${content.weekOf}`,
     html: buildEmailHtml(content),
   });

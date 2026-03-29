@@ -26,6 +26,8 @@ const FREQUENCIES: { value: DigestFrequency; label: string }[] = [
   { value: 'bimonthly', label: 'Every 8 weeks' },
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
 function detectTimezone(): string {
   try {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
@@ -34,8 +36,6 @@ function detectTimezone(): string {
   }
 }
 
-// Build the timezone option list, inserting the user's detected/saved timezone
-// at the top if it isn't already in the curated list.
 function buildTimezoneOptions(current: string) {
   const exists = COMMON_TIMEZONES.some(tz => tz.value === current);
   if (exists) return COMMON_TIMEZONES;
@@ -45,7 +45,7 @@ function buildTimezoneOptions(current: string) {
 interface ScheduleFormProps {
   initial: {
     emailEnabled: boolean;
-    notifyEmail: string;
+    notifyEmails: string[];
     digestDay: number;
     digestHour: number;
     digestMinute: number;
@@ -56,7 +56,9 @@ interface ScheduleFormProps {
 
 export default function ScheduleForm({ initial }: ScheduleFormProps) {
   const [emailEnabled, setEmailEnabled]       = useState(initial.emailEnabled);
-  const [notifyEmail, setNotifyEmail]         = useState(initial.notifyEmail);
+  const [notifyEmails, setNotifyEmails]       = useState<string[]>(initial.notifyEmails);
+  const [emailInput, setEmailInput]           = useState('');
+  const [emailInputError, setEmailInputError] = useState('');
   const [digestDay, setDigestDay]             = useState(initial.digestDay);
   const [digestHour, setDigestHour]           = useState(initial.digestHour);
   const [digestMinute, setDigestMinute]       = useState(initial.digestMinute);
@@ -66,6 +68,26 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
 
   const timezoneOptions = buildTimezoneOptions(timezone);
 
+  function addEmail() {
+    const email = emailInput.trim().toLowerCase();
+    if (!email) return;
+    if (!EMAIL_REGEX.test(email)) {
+      setEmailInputError('Enter a valid email address.');
+      return;
+    }
+    if (notifyEmails.includes(email)) {
+      setEmailInputError('Already added.');
+      return;
+    }
+    setNotifyEmails(prev => [...prev, email]);
+    setEmailInput('');
+    setEmailInputError('');
+  }
+
+  function removeEmail(email: string) {
+    setNotifyEmails(prev => prev.filter(e => e !== email));
+  }
+
   async function handleSave() {
     setStatus('saving');
     try {
@@ -74,7 +96,7 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           emailEnabled,
-          notifyEmail: notifyEmail || null,
+          notifyEmails,
           digestDay,
           digestHour,
           digestMinute,
@@ -105,15 +127,50 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
 
       {emailEnabled && (
         <div className="space-y-3 pl-5">
-          <div className="space-y-1">
-            <label className="text-xs text-gray-500">Send to (leave blank to use your account email)</label>
-            <input
-              type="email"
-              value={notifyEmail}
-              onChange={(e) => setNotifyEmail(e.target.value)}
-              placeholder="you@example.com"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+
+          {/* Multi-email recipients */}
+          <div className="space-y-2">
+            <label className="text-xs text-gray-500">
+              Recipients (leave empty to use your account email)
+            </label>
+
+            {notifyEmails.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {notifyEmails.map(email => (
+                  <span
+                    key={email}
+                    className="flex items-center gap-1 px-2 py-0.5 bg-gray-100 rounded text-xs font-mono"
+                  >
+                    {email}
+                    <button
+                      onClick={() => removeEmail(email)}
+                      className="text-gray-400 hover:text-gray-700 leading-none"
+                      aria-label={`Remove ${email}`}
+                    >
+                      &times;
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={emailInput}
+                onChange={(e) => { setEmailInput(e.target.value); setEmailInputError(''); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEmail(); } }}
+                placeholder="you@example.com"
+                className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={addEmail}
+                className="text-sm px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50"
+              >
+                Add
+              </button>
+            </div>
+            {emailInputError && <p className="text-xs text-red-500">{emailInputError}</p>}
           </div>
 
           <div className="space-y-1">

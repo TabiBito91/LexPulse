@@ -25,7 +25,7 @@ export default async function SettingsPage() {
       <ScheduleForm
         initial={{
           emailEnabled: settings?.email_enabled ?? false,
-          notifyEmail: settings?.notify_email ?? '',
+          notifyEmails: settings?.notify_emails ?? [],
           digestDay: settings?.digest_day ?? 1,
           digestHour: settings?.digest_hour ?? 9,
           digestMinute: settings?.digest_minute ?? 0,

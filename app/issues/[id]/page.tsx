@@ -17,8 +17,8 @@ export default async function IssuePage({ params }: Props) {
 
   return (
     <div className="space-y-4">
-      <a href="/" className="text-xs text-gray-400 hover:text-gray-600">
-        &larr; Back to digest
+      <a href="/digests" className="text-xs text-gray-400 hover:text-gray-600">
+        &larr; Back to past digests
       </a>
       <DigestReader content={digest.content} />
     </div>

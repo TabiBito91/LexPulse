@@ -21,6 +21,9 @@ export default function RootLayout({
               LexPulse
             </a>
             <div className="flex items-center gap-4 text-sm">
+              <a href="/digests" className="text-gray-500 hover:text-gray-900">
+                Past digests
+              </a>
               <a href="/settings" className="text-gray-500 hover:text-gray-900">
                 Settings
               </a>

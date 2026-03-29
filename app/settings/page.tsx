@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getUserKey, getUserSettings } from '@/lib/supabase';
 import ApiKeyForm from '@/components/ApiKeyForm';
 import ScheduleForm from '@/components/ScheduleForm';
+import SourcesForm from '@/components/SourcesForm';
 
 export default async function SettingsPage() {
   const { userId } = await auth();
@@ -30,6 +31,10 @@ export default async function SettingsPage() {
           digestMinute: settings?.digest_minute ?? 0,
         }}
       />
+
+      <hr className="border-gray-200" />
+
+      <SourcesForm initial={settings?.preferred_sites ?? []} />
     </div>
   );
 }

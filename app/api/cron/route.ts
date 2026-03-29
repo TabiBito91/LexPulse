@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
-import { getUserKey, getUsersScheduledNow, insertDigest } from '@/lib/supabase';
+import { getUserKey, getUserSettings, getUsersScheduledNow, insertDigest } from '@/lib/supabase';
 import { sendDigestEmail } from '@/lib/email';
 
 // Allow up to 5 minutes — multiple users may be generated in sequence
@@ -44,8 +44,12 @@ export async function GET(req: Request) {
         continue;
       }
 
+      // Fetch preferred sites from user settings
+      const userSettings = await getUserSettings(clerk_id).catch(() => null);
+      const preferredSites = userSettings?.preferred_sites ?? [];
+
       // Generate digest
-      const digest = await generateDigest(apiKey);
+      const digest = await generateDigest(apiKey, preferredSites);
       apiKey = ''; // clear from memory
 
       // Persist

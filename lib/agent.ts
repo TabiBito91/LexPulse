@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import type { DigestContent, DigestSection, TopicArea } from './types';
 import { TOPIC_AREAS } from './types';
 
-const SYSTEM_PROMPT = `You are a US legal intelligence analyst. Your job is to find and summarize the most significant legal developments from the past 7 days.
+const BASE_SYSTEM_PROMPT = `You are a US legal intelligence analyst. Your job is to find and summarize the most significant legal developments from the past 7 days.
 
 For each topic area provided, identify 3–5 high-signal items. Each item must include:
 - title: a concise headline
@@ -20,14 +20,26 @@ Exclude: opinion pieces, listicles, and items older than 7 days.
 
 Use the web_search tool to find recent developments, then call create_digest with your findings.`;
 
-function buildUserPrompt(weekOf: string): string {
+function buildSystemPrompt(preferredSites: string[]): string {
+  if (preferredSites.length === 0) return BASE_SYSTEM_PROMPT;
+  const siteList = preferredSites.join(', ');
+  const siteOperators = preferredSites.map((s) => `site:${s}`).join(' OR ');
+  return `${BASE_SYSTEM_PROMPT}
+
+Preferred sources: The user has specified preferred domains — ${siteList}. When searching, use "${siteOperators}" operators to prioritise results from these sites. If a preferred site has relevant coverage, use it. Only fall back to other sources if preferred sites lack sufficient coverage for a topic.`;
+}
+
+function buildUserPrompt(weekOf: string, preferredSites: string[]): string {
   const topicList = TOPIC_AREAS.map((t) => `- ${t}`).join('\n');
+  const sitesNote = preferredSites.length > 0
+    ? `\nPrioritise results from: ${preferredSites.map((s) => `site:${s}`).join(' OR ')}. Use these site: operators in your web searches.`
+    : '';
   return `Today is ${new Date().toDateString()}. Generate a digest for the week of ${weekOf}.
 
 Cover these four topic areas:
 ${topicList}
 
-Search for the most recent and significant developments in each area from the past 7 days.
+Search for the most recent and significant developments in each area from the past 7 days.${sitesNote}
 Ensure every item has a direct URL to the source and the date it was published.`;
 }
 
@@ -84,7 +96,7 @@ const CREATE_DIGEST_TOOL = {
   },
 };
 
-export async function generateDigest(apiKey: string): Promise<DigestContent> {
+export async function generateDigest(apiKey: string, preferredSites: string[] = []): Promise<DigestContent> {
   // SECURITY: apiKey is a plaintext key — never log it, never include it in error messages
   const client = new Anthropic({ apiKey });
   const weekOf = getWeekOf();
@@ -93,13 +105,13 @@ export async function generateDigest(apiKey: string): Promise<DigestContent> {
   const response = await client.messages.create({
     model: 'claude-sonnet-4-6',
     max_tokens: 8192,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(preferredSites),
     tools: [
       { type: 'web_search_20250305', name: 'web_search', max_uses: 12 } as any,
       CREATE_DIGEST_TOOL as any,
     ],
     tool_choice: { type: 'auto' },
-    messages: [{ role: 'user', content: buildUserPrompt(weekOf) }],
+    messages: [{ role: 'user', content: buildUserPrompt(weekOf, preferredSites) }],
   });
 
   console.log('[agent] stop_reason:', response.stop_reason);

@@ -71,10 +71,14 @@ async function handleGenerate(req: Request) {
     keyHint = userKey.key_hint;
   }
 
+  // ── Fetch user settings (preferred sites + email prefs) ───────────────────
+  const settings = await getUserSettings(resolvedClerkId).catch(() => null);
+  const preferredSites = settings?.preferred_sites ?? [];
+
   // ── Run the agent ──────────────────────────────────────────────────────────
   let digest;
   try {
-    digest = await generateDigest(resolvedApiKey);
+    digest = await generateDigest(resolvedApiKey, preferredSites);
   } catch (err) {
     // SECURITY: log error type/message only — never log the API key
     const errMsg = err instanceof Error ? err.message : String(err);
@@ -97,7 +101,6 @@ async function handleGenerate(req: Request) {
 
   // ── Send email if enabled ─────────────────────────────────────────────────
   try {
-    const settings = await getUserSettings(resolvedClerkId);
     if (settings?.email_enabled) {
       // Use custom notify_email if set, otherwise fall back to Clerk account email
       let toEmail = settings.notify_email;

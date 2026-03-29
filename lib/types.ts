@@ -58,6 +58,7 @@ export interface UserSettings {
   digest_day: number;            // 0=Sunday … 6=Saturday (UTC)
   digest_hour: number;           // 0–23 UTC
   digest_minute: number;         // 0, 5, 10 … 55
+  preferred_sites: string[];     // domains to prioritise in searches e.g. ["reuters.com"]
   created_at: string;
   updated_at: string;
 }

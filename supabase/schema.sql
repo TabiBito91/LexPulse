@@ -51,6 +51,9 @@ CREATE TABLE IF NOT EXISTS user_settings (
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
 
+-- Add preferred_sites column if not already present (run once)
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS preferred_sites text[] NOT NULL DEFAULT '{}';
+
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY user_settings_owner ON user_settings

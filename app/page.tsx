@@ -17,7 +17,7 @@ export default async function HomePage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-sm font-semibold text-gray-500">Latest digest</h1>
-          <GenerateButton />
+          <GenerateButton latestCreatedAt={latest?.created_at ?? null} />
         </div>
         {latest ? (
           <DigestReader content={latest.content} />

@@ -2,7 +2,7 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
-import type { Digest, UserKey, UserSettings } from './types';
+import type { Digest, DigestFrequency, UserKey, UserSettings } from './types';
 
 function getServiceClient() {
   const url = process.env.SUPABASE_URL;
@@ -107,24 +107,29 @@ export async function upsertUserSettings(
   if (error) throw new Error('Failed to save user settings');
 }
 
-// Returns all users who are scheduled to receive a digest right now (UTC day + hour match)
+// Returns all users whose next_run_at is at or before now.
 export async function getUsersScheduledNow(): Promise<
-  Array<{ clerk_id: string; notify_email: string | null }>
+  Array<{ clerk_id: string; notify_email: string | null; next_run_at: string; digest_frequency: DigestFrequency }>
 > {
   const db = getServiceClient();
-  const now = new Date();
-  const day = now.getUTCDay();
-  const hour = now.getUTCHours();
-  const minute = now.getUTCMinutes();
+  const now = new Date().toISOString();
   const { data, error } = await db
     .from('user_settings')
-    .select('clerk_id, notify_email')
+    .select('clerk_id, notify_email, next_run_at, digest_frequency')
     .eq('email_enabled', true)
-    .eq('digest_day', day)
-    .eq('digest_hour', hour)
-    .eq('digest_minute', minute);
+    .not('next_run_at', 'is', null)
+    .lte('next_run_at', now);
   if (error) throw new Error('Failed to fetch scheduled users');
   return data ?? [];
+}
+
+export async function updateNextRunAt(clerkId: string, nextRunAt: Date): Promise<void> {
+  const db = getServiceClient();
+  const { error } = await db
+    .from('user_settings')
+    .update({ next_run_at: nextRunAt.toISOString(), updated_at: new Date().toISOString() })
+    .eq('clerk_id', clerkId);
+  if (error) throw new Error('Failed to update next_run_at');
 }
 
 export async function insertDigest(

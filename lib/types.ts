@@ -1,3 +1,5 @@
+export type DigestFrequency = 'weekly' | 'biweekly' | 'monthly' | 'bimonthly';
+
 export type TopicArea =
   | 'US Employment Law'
   | 'US AI Law'
@@ -54,11 +56,14 @@ export interface UserSettings {
   id: string;
   clerk_id: string;
   email_enabled: boolean;
-  notify_email: string | null;   // null = use Clerk account email
-  digest_day: number;            // 0=Sunday … 6=Saturday (UTC)
-  digest_hour: number;           // 0–23 UTC
-  digest_minute: number;         // 0, 5, 10 … 55
-  preferred_sites: string[];     // domains to prioritise in searches e.g. ["reuters.com"]
+  notify_email: string | null;        // null = use Clerk account email
+  digest_day: number;                 // 0=Sunday … 6=Saturday (in user's timezone)
+  digest_hour: number;                // 0–23 (in user's timezone)
+  digest_minute: number;              // 0, 5, 10 … 55
+  timezone: string;                   // IANA timezone e.g. "America/New_York"
+  digest_frequency: DigestFrequency;  // how often to send
+  next_run_at: string | null;         // UTC ISO timestamp of next scheduled run
+  preferred_sites: string[];          // domains to prioritise in searches e.g. ["reuters.com"]
   created_at: string;
   updated_at: string;
 }

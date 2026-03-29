@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
-import { getUserKey, getUserSettings, getUsersScheduledNow, insertDigest } from '@/lib/supabase';
+import { getUserKey, getUserSettings, getUsersScheduledNow, insertDigest, updateNextRunAt } from '@/lib/supabase';
+import { computeNextFromPrevious } from '@/lib/scheduling';
 import { sendDigestEmail } from '@/lib/email';
+import type { DigestFrequency } from '@/lib/types';
 
 // Allow up to 5 minutes — multiple users may be generated in sequence
 export const maxDuration = 300;
@@ -15,7 +17,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  let scheduledUsers: Array<{ clerk_id: string; notify_email: string | null }>;
+  let scheduledUsers: Array<{ clerk_id: string; notify_email: string | null; next_run_at: string; digest_frequency: string }>;
   try {
     scheduledUsers = await getUsersScheduledNow();
   } catch (err) {
@@ -27,7 +29,7 @@ export async function GET(req: Request) {
 
   const results: Array<{ clerkId: string; status: string }> = [];
 
-  for (const { clerk_id, notify_email } of scheduledUsers) {
+  for (const { clerk_id, notify_email, next_run_at, digest_frequency } of scheduledUsers) {
     try {
       // Fetch and decrypt user's API key
       const userKey = await getUserKey(clerk_id);
@@ -54,6 +56,15 @@ export async function GET(req: Request) {
 
       // Persist
       await insertDigest(clerk_id, digest, userKey.key_hint);
+
+      // Advance next_run_at for this user
+      try {
+        const nextRunAt = computeNextFromPrevious(new Date(next_run_at), digest_frequency as DigestFrequency);
+        await updateNextRunAt(clerk_id, nextRunAt);
+      } catch (schedErr) {
+        const msg = schedErr instanceof Error ? schedErr.message : String(schedErr);
+        console.error(`[cron] failed to advance next_run_at for ${clerk_id} (non-fatal):`, msg);
+      }
 
       // Send email
       try {

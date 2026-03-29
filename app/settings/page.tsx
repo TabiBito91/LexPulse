@@ -29,6 +29,8 @@ export default async function SettingsPage() {
           digestDay: settings?.digest_day ?? 1,
           digestHour: settings?.digest_hour ?? 9,
           digestMinute: settings?.digest_minute ?? 0,
+          timezone: settings?.timezone ?? '',
+          digestFrequency: settings?.digest_frequency ?? 'weekly',
         }}
       />
 

@@ -2,7 +2,7 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
-import type { Digest, DigestFrequency, UserKey, UserSettings } from './types';
+import type { Digest, DigestFrequency, TrackedThread, UserKey, UserSettings } from './types';
 
 function getServiceClient() {
   const url = process.env.SUPABASE_URL;
@@ -131,6 +131,57 @@ export async function updateNextRunAt(clerkId: string, nextRunAt: Date): Promise
     .eq('clerk_id', clerkId);
   if (error) throw new Error('Failed to update next_run_at');
 }
+
+// ── Tracked thread helpers ──────────────────────────────────────────────────
+
+export async function getTrackedThreads(clerkId: string): Promise<TrackedThread[]> {
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from('tracked_threads')
+    .select('*')
+    .eq('clerk_id', clerkId)
+    .eq('active', true)
+    .order('created_at', { ascending: false });
+  if (error) throw new Error('Failed to fetch tracked threads');
+  return data ?? [];
+}
+
+export async function getTrackedThreadCount(clerkId: string): Promise<number> {
+  const db = getServiceClient();
+  const { count, error } = await db
+    .from('tracked_threads')
+    .select('*', { count: 'exact', head: true })
+    .eq('clerk_id', clerkId)
+    .eq('active', true);
+  if (error) throw new Error('Failed to count tracked threads');
+  return count ?? 0;
+}
+
+export async function addTrackedThread(
+  clerkId: string,
+  thread: Pick<TrackedThread, 'title' | 'source_url' | 'topic_area' | 'search_query'>,
+): Promise<TrackedThread> {
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from('tracked_threads')
+    .insert({ clerk_id: clerkId, ...thread })
+    .select()
+    .single();
+  if (error) throw new Error('Failed to add tracked thread');
+  return data;
+}
+
+export async function deactivateTrackedThread(clerkId: string, threadId: string): Promise<void> {
+  const db = getServiceClient();
+  const { error } = await db
+    .from('tracked_threads')
+    .update({ active: false })
+    .eq('id', threadId)
+    .eq('clerk_id', clerkId); // scope to owner
+  if (error) throw new Error('Failed to deactivate tracked thread');
+}
+
+// ── Digest helpers ──────────────────────────────────────────────────────────
 
 export async function insertDigest(
   clerkId: string,

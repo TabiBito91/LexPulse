@@ -2,7 +2,7 @@
 import 'server-only';
 
 import Anthropic from '@anthropic-ai/sdk';
-import type { DigestContent, DigestSection, TopicArea } from './types';
+import type { DigestContent, DigestSection, FollowedTopicUpdate, TopicArea, TrackedThread } from './types';
 import { TOPIC_AREAS } from './types';
 
 const BASE_SYSTEM_PROMPT = `You are a US legal intelligence analyst. Your job is to find and summarize the most significant legal developments from the past 7 days.
@@ -96,7 +96,90 @@ const CREATE_DIGEST_TOOL = {
   },
 };
 
-export async function generateDigest(apiKey: string, preferredSites: string[] = []): Promise<DigestContent> {
+const REPORT_FOLLOWED_UPDATES_TOOL = {
+  name: 'report_followed_updates',
+  description: 'Submit updates for all tracked topics. Include one entry per tracked topic, even if there are no new developments.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      updates: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            threadId:     { type: 'string', description: 'The exact threadId provided in the prompt' },
+            hasUpdate:    { type: 'boolean', description: 'Whether there are new developments this week' },
+            updateTitle:  { type: 'string', description: 'Headline of the new development (if hasUpdate)' },
+            summary:      { type: 'string', description: '2–3 sentence summary of the update (if hasUpdate)' },
+            significance: { type: 'string', description: 'Why this update matters to practitioners (if hasUpdate)' },
+            source:       { type: 'string', description: 'Publication or agency name (if hasUpdate)' },
+            url:          { type: 'string', description: 'Direct URL to the source (if hasUpdate)' },
+            publishedDate:{ type: 'string', description: 'Publication date e.g. "March 27, 2026" (if hasUpdate)' },
+          },
+          required: ['threadId', 'hasUpdate'],
+        },
+      },
+    },
+    required: ['updates'],
+  },
+};
+
+async function generateFollowedUpdates(
+  client: Anthropic,
+  threads: TrackedThread[],
+): Promise<FollowedTopicUpdate[]> {
+  if (threads.length === 0) return [];
+
+  const threadList = threads
+    .map((t) => `- threadId: "${t.id}" | Topic: "${t.search_query}"`)
+    .join('\n');
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-6',
+    max_tokens: 4096,
+    system: `You are a legal news tracker. For each tracked topic below, search for any new developments published in the past 7 days. Report your findings using the report_followed_updates tool. Include one entry per topic — set hasUpdate to false if nothing new was found.`,
+    tools: [
+      { type: 'web_search_20250305', name: 'web_search', max_uses: threads.length * 2 } as any,
+      REPORT_FOLLOWED_UPDATES_TOOL as any,
+    ],
+    tool_choice: { type: 'auto' },
+    messages: [{
+      role: 'user',
+      content: `Today is ${new Date().toDateString()}. Search for updates from the past 7 days on each of the following tracked topics:\n\n${threadList}\n\nFor each topic, call web_search then report your findings with report_followed_updates.`,
+    }],
+  });
+
+  const toolBlock = response.content.find(
+    (b) => b.type === 'tool_use' && b.name === 'report_followed_updates',
+  );
+  if (!toolBlock || toolBlock.type !== 'tool_use') return [];
+
+  const input = toolBlock.input as {
+    updates: Array<Record<string, string | boolean>>;
+  };
+
+  return (input.updates ?? []).map((u) => {
+    const thread = threads.find((t) => t.id === u.threadId);
+    return {
+      threadId: String(u.threadId ?? ''),
+      originalTitle: thread?.title ?? String(u.threadId ?? ''),
+      hasUpdate: Boolean(u.hasUpdate),
+      updateTitle: u.hasUpdate ? String(u.updateTitle ?? '') : undefined,
+      summary: u.hasUpdate ? String(u.summary ?? '') : undefined,
+      significance: u.hasUpdate ? String(u.significance ?? '') : undefined,
+      source: u.hasUpdate ? String(u.source ?? '') : undefined,
+      url: u.hasUpdate ? String(u.url ?? '') : undefined,
+      publishedDate: u.hasUpdate ? String(u.publishedDate ?? '') : undefined,
+    };
+  });
+}
+
+export async function generateDigest(
+  apiKey: string,
+  preferredSites: string[] = [],
+  trackedThreads: TrackedThread[] = [],
+): Promise<DigestContent> {
   // SECURITY: apiKey is a plaintext key — never log it, never include it in error messages
   const client = new Anthropic({ apiKey });
   const weekOf = getWeekOf();
@@ -148,8 +231,21 @@ export async function generateDigest(apiKey: string, preferredSites: string[] = 
       })),
     }));
 
+  // Generate followed topic updates as a separate agent call
+  let followedUpdates: FollowedTopicUpdate[] | undefined;
+  if (trackedThreads.length > 0) {
+    console.log(`[agent] fetching updates for ${trackedThreads.length} tracked thread(s)`);
+    try {
+      followedUpdates = await generateFollowedUpdates(client, trackedThreads);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error('[agent] followed updates failed (non-fatal):', msg);
+    }
+  }
+
   return {
     sections,
+    ...(followedUpdates && followedUpdates.length > 0 ? { followedUpdates } : {}),
     generatedAt: new Date().toISOString(),
     weekOf: `Week of ${weekOf}`,
   };

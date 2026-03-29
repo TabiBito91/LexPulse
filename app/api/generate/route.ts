@@ -2,7 +2,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
-import { getUserKey, getUserSettings, insertDigest } from '@/lib/supabase';
+import { getUserKey, getUserSettings, getTrackedThreads, insertDigest } from '@/lib/supabase';
 import { sendDigestEmail } from '@/lib/email';
 
 // Allow up to 5 minutes for web search + digest generation (requires Vercel Pro)
@@ -71,14 +71,17 @@ async function handleGenerate(req: Request) {
     keyHint = userKey.key_hint;
   }
 
-  // ── Fetch user settings (preferred sites + email prefs) ───────────────────
-  const settings = await getUserSettings(resolvedClerkId).catch(() => null);
+  // ── Fetch user settings, preferred sites, and tracked threads ────────────
+  const [settings, trackedThreads] = await Promise.all([
+    getUserSettings(resolvedClerkId).catch(() => null),
+    getTrackedThreads(resolvedClerkId).catch(() => []),
+  ]);
   const preferredSites = settings?.preferred_sites ?? [];
 
   // ── Run the agent ──────────────────────────────────────────────────────────
   let digest;
   try {
-    digest = await generateDigest(resolvedApiKey, preferredSites);
+    digest = await generateDigest(resolvedApiKey, preferredSites, trackedThreads);
   } catch (err) {
     // SECURITY: log error type/message only — never log the API key
     const errMsg = err instanceof Error ? err.message : String(err);

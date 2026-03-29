@@ -24,6 +24,9 @@ export default function RootLayout({
               <a href="/digests" className="text-gray-500 hover:text-gray-900">
                 Past digests
               </a>
+              <a href="/following" className="text-gray-500 hover:text-gray-900">
+                Following
+              </a>
               <a href="/settings" className="text-gray-500 hover:text-gray-900">
                 Settings
               </a>

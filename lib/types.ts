@@ -27,10 +27,34 @@ export interface DigestSection {
   items: DigestItem[];
 }
 
+export interface FollowedTopicUpdate {
+  threadId: string;
+  originalTitle: string;
+  hasUpdate: boolean;
+  updateTitle?: string;
+  summary?: string;
+  significance?: string;
+  source?: string;
+  url?: string;
+  publishedDate?: string;
+}
+
 export interface DigestContent {
   sections: DigestSection[];
+  followedUpdates?: FollowedTopicUpdate[]; // updates on tracked threads
   generatedAt: string; // ISO timestamp
   weekOf: string;      // "Week of March 24, 2026"
+}
+
+export interface TrackedThread {
+  id: string;
+  clerk_id: string;
+  title: string;
+  source_url: string | null;
+  topic_area: string | null;
+  search_query: string;
+  created_at: string;
+  active: boolean;
 }
 
 export interface Digest {

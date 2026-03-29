@@ -1,6 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { notFound, redirect } from 'next/navigation';
-import { getDigest } from '@/lib/supabase';
+import { getDigest, getTrackedThreads } from '@/lib/supabase';
 import DigestReader from '@/components/DigestReader';
 
 interface Props {
@@ -12,7 +12,10 @@ export default async function IssuePage({ params }: Props) {
   if (!userId) redirect('/sign-in');
 
   const { id } = await params;
-  const digest = await getDigest(id, userId);
+  const [digest, trackedThreads] = await Promise.all([
+    getDigest(id, userId),
+    getTrackedThreads(userId),
+  ]);
   if (!digest) notFound();
 
   return (
@@ -20,7 +23,7 @@ export default async function IssuePage({ params }: Props) {
       <a href="/digests" className="text-xs text-gray-400 hover:text-gray-600">
         &larr; Back to past digests
       </a>
-      <DigestReader content={digest.content} />
+      <DigestReader content={digest.content} trackedThreads={trackedThreads} />
     </div>
   );
 }

@@ -2,7 +2,9 @@
 import 'server-only';
 
 import { Resend } from 'resend';
-import type { DigestContent } from './types';
+import type { DigestContent, FollowedTopicUpdate } from './types';
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://lex-pulse.com';
 
 function getResendClient(): Resend {
   const key = process.env.RESEND_API_KEY;
@@ -14,7 +16,51 @@ function getFromAddress(): string {
   return process.env.RESEND_FROM_EMAIL ?? 'LexPulse <onboarding@resend.dev>';
 }
 
+function buildFollowedUpdatesHtml(updates: FollowedTopicUpdate[]): string {
+  const withUpdates    = updates.filter((u) => u.hasUpdate);
+  const withoutUpdates = updates.filter((u) => !u.hasUpdate);
+
+  const updatesHtml = withUpdates.map((u) => {
+    const titleHtml = u.url
+      ? `<a href="${u.url}" style="color:#111827;text-decoration:none;font-weight:600;">${u.updateTitle}</a>`
+      : `<strong>${u.updateTitle}</strong>`;
+    const metaHtml = [
+      u.url
+        ? `<a href="${u.url}" style="color:#6b7280;text-decoration:none;">${u.source}</a>`
+        : u.source,
+      u.publishedDate,
+    ].filter(Boolean).join(' &middot; ');
+    return `
+      <div style="margin-bottom:20px;">
+        <p style="margin:0 0 4px;font-size:11px;color:#3b82f6;">Update on: ${u.originalTitle}</p>
+        <p style="margin:0 0 6px;font-size:14px;line-height:1.4;">${titleHtml}</p>
+        <p style="margin:0 0 6px;font-size:13px;color:#374151;line-height:1.6;">${u.summary}</p>
+        <p style="margin:0 0 6px;font-size:12px;color:#6b7280;line-height:1.5;">
+          <strong style="color:#4b5563;">Why it matters:</strong> ${u.significance}
+        </p>
+        <p style="margin:0;font-size:11px;color:#9ca3af;">${metaHtml}</p>
+      </div>`;
+  }).join('');
+
+  const noUpdatesHtml = withoutUpdates.map((u) =>
+    `<p style="margin:0 0 4px;font-size:11px;color:#9ca3af;">No new developments this week on: <em>${u.originalTitle}</em></p>`
+  ).join('');
+
+  return `
+    <div style="margin-bottom:32px;">
+      <h2 style="margin:0 0 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#3b82f6;border-bottom:1px solid #dbeafe;padding-bottom:6px;">
+        Following
+      </h2>
+      ${updatesHtml}
+      ${noUpdatesHtml}
+    </div>`;
+}
+
 function buildEmailHtml(content: DigestContent): string {
+  const followedHtml = content.followedUpdates && content.followedUpdates.length > 0
+    ? buildFollowedUpdatesHtml(content.followedUpdates)
+    : '';
+
   const sectionsHtml = content.sections
     .map((section) => {
       const itemsHtml = section.items
@@ -22,11 +68,13 @@ function buildEmailHtml(content: DigestContent): string {
           const titleHtml = item.url
             ? `<a href="${item.url}" style="color:#111827;text-decoration:none;font-weight:600;">${item.title}</a>`
             : `<strong>${item.title}</strong>`;
+          const followUrl = `${APP_URL}/follow?title=${encodeURIComponent(item.title)}&url=${encodeURIComponent(item.url)}&topic=${encodeURIComponent(section.topic)}`;
           const metaHtml = [
             item.url
               ? `<a href="${item.url}" style="color:#6b7280;text-decoration:none;">${item.source}</a>`
               : item.source,
             item.publishedDate,
+            `<a href="${followUrl}" style="color:#9ca3af;text-decoration:none;">Follow topic →</a>`,
           ]
             .filter(Boolean)
             .join(' &middot; ');
@@ -62,6 +110,7 @@ function buildEmailHtml(content: DigestContent): string {
       <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">${content.weekOf}</p>
     </div>
     <div style="padding:24px 32px;">
+      ${followedHtml}
       ${sectionsHtml}
     </div>
     <div style="padding:16px 32px;border-top:1px solid #e5e7eb;">

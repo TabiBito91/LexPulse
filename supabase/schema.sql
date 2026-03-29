@@ -18,7 +18,7 @@ ALTER TABLE user_keys ENABLE ROW LEVEL SECURITY;
 -- Service role bypasses RLS. This policy is defence-in-depth for anon/user role access.
 CREATE POLICY user_keys_owner ON user_keys
   USING (clerk_id = auth.jwt() ->> 'sub');
-
+1
 -- ── digests ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS digests (
   id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),

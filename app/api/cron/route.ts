@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
-import { getUserKey, getUserSettings, getUsersScheduledNow, insertDigest, updateNextRunAt } from '@/lib/supabase';
+import { getUserKey, getUserSettings, getUsersScheduledNow, getTrackedThreads, insertDigest, updateNextRunAt } from '@/lib/supabase';
 import { computeNextFromPrevious } from '@/lib/scheduling';
 import { sendDigestEmail } from '@/lib/email';
 import type { DigestFrequency } from '@/lib/types';
@@ -46,12 +46,15 @@ export async function GET(req: Request) {
         continue;
       }
 
-      // Fetch preferred sites from user settings
-      const userSettings = await getUserSettings(clerk_id).catch(() => null);
+      // Fetch preferred sites and tracked threads from user settings
+      const [userSettings, trackedThreads] = await Promise.all([
+        getUserSettings(clerk_id).catch(() => null),
+        getTrackedThreads(clerk_id).catch(() => []),
+      ]);
       const preferredSites = userSettings?.preferred_sites ?? [];
 
       // Generate digest
-      const digest = await generateDigest(apiKey, preferredSites);
+      const digest = await generateDigest(apiKey, preferredSites, trackedThreads);
       apiKey = ''; // clear from memory
 
       // Persist

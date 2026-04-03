@@ -4,7 +4,7 @@ import { upsertUserSettings } from '@/lib/supabase';
 import { computeNextRunAt } from '@/lib/scheduling';
 import type { DigestFrequency } from '@/lib/types';
 
-const VALID_FREQUENCIES: DigestFrequency[] = ['weekly', 'biweekly', 'monthly', 'bimonthly'];
+const VALID_FREQUENCIES: DigestFrequency[] = ['daily', 'weekly', 'biweekly', 'monthly', 'bimonthly'];
 
 function isValidTimezone(tz: string): boolean {
   try {

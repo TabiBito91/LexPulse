@@ -91,6 +91,7 @@ function nextOccurrence(
 }
 
 const FREQUENCY_DAYS: Record<DigestFrequency, number> = {
+  daily: 1,
   weekly: 7,
   biweekly: 14,
   monthly: 28,
@@ -109,9 +110,19 @@ export function computeNextRunAt(
   frequency: DigestFrequency,
   after: Date = new Date(),
 ): Date {
-  // `frequency` is reserved for future use (e.g. monthly = first weekday of month).
-  // Currently all frequencies use weekday-based next occurrence for the first run.
-  void frequency;
+  if (frequency === 'daily') {
+    // For daily, find the next occurrence of hour:minute on any day.
+    for (let daysAhead = 0; daysAhead <= 1; daysAhead++) {
+      const candidate = new Date(after.getTime() + daysAhead * 86_400_000);
+      const parts = getLocalParts(candidate, timezone);
+      const runAt = localToUTC(parts.year, parts.month, parts.day, hour, minute, timezone);
+      if (runAt.getTime() > after.getTime()) return runAt;
+    }
+    // Fallback: tomorrow at the given time
+    const tomorrow = new Date(after.getTime() + 86_400_000);
+    const parts = getLocalParts(tomorrow, timezone);
+    return localToUTC(parts.year, parts.month, parts.day, hour, minute, timezone);
+  }
   return nextOccurrence(day, hour, minute, timezone, after);
 }
 

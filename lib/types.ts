@@ -1,4 +1,4 @@
-export type DigestFrequency = 'weekly' | 'biweekly' | 'monthly' | 'bimonthly';
+export type DigestFrequency = 'daily' | 'weekly' | 'biweekly' | 'monthly' | 'bimonthly';
 
 export type TopicArea =
   | 'US Employment Law'

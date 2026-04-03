@@ -51,8 +51,12 @@ CREATE TABLE IF NOT EXISTS user_settings (
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
 
--- Add preferred_sites column if not already present (run once)
-ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS preferred_sites text[] NOT NULL DEFAULT '{}';
+-- Add columns introduced after initial schema (run once each)
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS preferred_sites  text[] NOT NULL DEFAULT '{}';
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS notify_emails    text[] NOT NULL DEFAULT '{}';
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone         text NOT NULL DEFAULT 'UTC';
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS digest_frequency text NOT NULL DEFAULT 'weekly';
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS next_run_at      timestamptz;
 
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 

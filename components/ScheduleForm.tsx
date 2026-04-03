@@ -20,6 +20,7 @@ const MINUTES = Array.from({ length: 12 }, (_, i) => {
 });
 
 const FREQUENCIES: { value: DigestFrequency; label: string }[] = [
+  { value: 'daily',     label: 'Every day' },
   { value: 'weekly',    label: 'Every week' },
   { value: 'biweekly',  label: 'Every 2 weeks' },
   { value: 'monthly',   label: 'Every 4 weeks' },
@@ -200,18 +201,20 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
           </div>
 
           <div className="flex gap-3">
-            <div className="space-y-1 flex-1">
-              <label className="text-xs text-gray-500">Day</label>
-              <select
-                value={digestDay}
-                onChange={(e) => setDigestDay(Number(e.target.value))}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {DAYS.map((day, i) => (
-                  <option key={i} value={i}>{day}</option>
-                ))}
-              </select>
-            </div>
+            {digestFrequency !== 'daily' && (
+              <div className="space-y-1 flex-1">
+                <label className="text-xs text-gray-500">Day</label>
+                <select
+                  value={digestDay}
+                  onChange={(e) => setDigestDay(Number(e.target.value))}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {DAYS.map((day, i) => (
+                    <option key={i} value={i}>{day}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-1">
               <label className="text-xs text-gray-500">Hour</label>
@@ -241,7 +244,10 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
           </div>
 
           <p className="text-xs text-gray-400">
-            All times are in your selected timezone. The first digest will be sent on the next matching {DAYS[digestDay]}.
+            All times are in your selected timezone.{' '}
+            {digestFrequency === 'daily'
+              ? 'The first digest will be sent at the next matching time today or tomorrow.'
+              : `The first digest will be sent on the next matching ${DAYS[digestDay]}.`}
           </p>
         </div>
       )}

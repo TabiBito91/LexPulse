@@ -23,7 +23,7 @@ export default function UnfollowButton({ threadId }: { threadId: string }) {
     <button
       onClick={handleUnfollow}
       disabled={status === 'loading'}
-      className="text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50 shrink-0"
+      className="text-xs text-gray-500 border border-gray-200 rounded px-2 py-1 hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50 shrink-0"
     >
       {status === 'loading' ? '…' : status === 'error' ? 'Error' : 'Unfollow'}
     </button>

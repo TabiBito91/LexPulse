@@ -33,7 +33,7 @@ export default async function FollowingPage() {
               <div className="space-y-0.5 min-w-0">
                 <Link
                   href={`/following/${thread.id}`}
-                  className="text-sm font-medium leading-snug truncate hover:underline"
+                  className="block text-sm font-medium leading-snug truncate hover:underline"
                 >
                   {thread.title}
                 </Link>

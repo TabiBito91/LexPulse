@@ -51,6 +51,48 @@ CREATE TABLE IF NOT EXISTS user_settings (
   updated_at   timestamptz NOT NULL DEFAULT now()
 );
 
+-- ── tracked_threads ────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS tracked_threads (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clerk_id     text NOT NULL,
+  title        text NOT NULL,
+  source_url   text,
+  topic_area   text,
+  search_query text NOT NULL,
+  active       boolean NOT NULL DEFAULT true,
+  created_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS tracked_threads_clerk_id
+  ON tracked_threads (clerk_id, active, created_at DESC);
+
+ALTER TABLE tracked_threads ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY tracked_threads_owner ON tracked_threads
+  USING (clerk_id = auth.jwt() ->> 'sub');
+
+-- ── thread_updates ──────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS thread_updates (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  thread_id      uuid NOT NULL REFERENCES tracked_threads(id),
+  clerk_id       text NOT NULL,
+  update_title   text NOT NULL,
+  summary        text NOT NULL,
+  significance   text NOT NULL,
+  source         text NOT NULL,
+  url            text,
+  published_date text,
+  generated_at   timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS thread_updates_thread_id_generated_at
+  ON thread_updates (thread_id, generated_at DESC);
+
+ALTER TABLE thread_updates ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY thread_updates_owner ON thread_updates
+  USING (clerk_id = auth.jwt() ->> 'sub');
+
 -- Add columns introduced after initial schema (run once each)
 ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS preferred_sites  text[] NOT NULL DEFAULT '{}';
 ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS notify_emails    text[] NOT NULL DEFAULT '{}';

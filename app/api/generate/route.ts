@@ -2,7 +2,7 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
 import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
-import { getUserKey, getUserSettings, getTrackedThreads, insertDigest } from '@/lib/supabase';
+import { getUserKey, getUserSettings, getTrackedThreads, insertDigest, insertThreadUpdates } from '@/lib/supabase';
 import { sendDigestEmail } from '@/lib/email';
 
 // Allow up to 5 minutes for web search + digest generation (requires Vercel Pro)
@@ -100,6 +100,25 @@ async function handleGenerate(req: Request) {
     savedId = saved.id;
   } catch {
     return NextResponse.json({ error: 'storage_failed' }, { status: 500 });
+  }
+
+  // ── Persist thread updates ────────────────────────────────────────────────
+  try {
+    const updates = (digest.followedUpdates ?? [])
+      .filter(u => u.hasUpdate)
+      .map(u => ({
+        threadId: u.threadId,
+        updateTitle: u.updateTitle!,
+        summary: u.summary!,
+        significance: u.significance!,
+        source: u.source!,
+        url: u.url,
+        publishedDate: u.publishedDate,
+      }));
+    await insertThreadUpdates(resolvedClerkId, updates);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[generate] failed to persist thread updates (non-fatal):', msg);
   }
 
   // ── Send email if enabled ─────────────────────────────────────────────────

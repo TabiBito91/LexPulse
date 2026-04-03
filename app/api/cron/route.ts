@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { clerkClient } from '@clerk/nextjs/server';
 import { generateDigest } from '@/lib/agent';
 import { decryptKey } from '@/lib/crypto';
-import { getUserKey, getUserSettings, getUsersScheduledNow, getTrackedThreads, insertDigest, updateNextRunAt } from '@/lib/supabase';
+import { getUserKey, getUserSettings, getUsersScheduledNow, getTrackedThreads, insertDigest, insertThreadUpdates, updateNextRunAt } from '@/lib/supabase';
 import { computeNextFromPrevious } from '@/lib/scheduling';
 import { sendDigestEmail } from '@/lib/email';
 import type { DigestFrequency } from '@/lib/types';
@@ -59,6 +59,25 @@ export async function GET(req: Request) {
 
       // Persist
       await insertDigest(clerk_id, digest, userKey.key_hint);
+
+      // Persist thread updates
+      try {
+        const updates = (digest.followedUpdates ?? [])
+          .filter(u => u.hasUpdate)
+          .map(u => ({
+            threadId: u.threadId,
+            updateTitle: u.updateTitle!,
+            summary: u.summary!,
+            significance: u.significance!,
+            source: u.source!,
+            url: u.url,
+            publishedDate: u.publishedDate,
+          }));
+        await insertThreadUpdates(clerk_id, updates);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(`[cron] failed to persist thread updates for ${clerk_id} (non-fatal):`, msg);
+      }
 
       // Advance next_run_at for this user
       try {

@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { getTrackedThreads } from '@/lib/supabase';
 import UnfollowButton from '@/components/UnfollowButton';
 
@@ -30,7 +31,12 @@ export default async function FollowingPage() {
               className="flex items-start justify-between gap-4 py-3 border-b border-gray-100 last:border-0"
             >
               <div className="space-y-0.5 min-w-0">
-                <p className="text-sm font-medium leading-snug truncate">{thread.title}</p>
+                <Link
+                  href={`/following/${thread.id}`}
+                  className="text-sm font-medium leading-snug truncate hover:underline"
+                >
+                  {thread.title}
+                </Link>
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   {thread.topic_area && <span>{thread.topic_area}</span>}
                   {thread.source_url && (

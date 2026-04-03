@@ -46,6 +46,19 @@ export interface DigestContent {
   weekOf: string;      // "Week of March 24, 2026"
 }
 
+export interface ThreadUpdate {
+  id: string;
+  thread_id: string;
+  clerk_id: string;
+  update_title: string;
+  summary: string;
+  significance: string;
+  source: string;
+  url: string | null;
+  published_date: string | null;
+  generated_at: string;
+}
+
 export interface TrackedThread {
   id: string;
   clerk_id: string;

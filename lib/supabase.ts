@@ -2,7 +2,7 @@
 import 'server-only';
 
 import { createClient } from '@supabase/supabase-js';
-import type { Digest, DigestFrequency, TrackedThread, UserKey, UserSettings } from './types';
+import type { Digest, DigestFrequency, ThreadUpdate, TrackedThread, UserKey, UserSettings } from './types';
 
 function getServiceClient() {
   const url = process.env.SUPABASE_URL;
@@ -171,6 +171,18 @@ export async function addTrackedThread(
   return data;
 }
 
+export async function getTrackedThread(clerkId: string, threadId: string): Promise<TrackedThread | null> {
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from('tracked_threads')
+    .select('*')
+    .eq('clerk_id', clerkId)
+    .eq('id', threadId)
+    .maybeSingle();
+  if (error) throw new Error('Failed to fetch tracked thread');
+  return data;
+}
+
 export async function deactivateTrackedThread(clerkId: string, threadId: string): Promise<void> {
   const db = getServiceClient();
   const { error } = await db
@@ -179,6 +191,48 @@ export async function deactivateTrackedThread(clerkId: string, threadId: string)
     .eq('id', threadId)
     .eq('clerk_id', clerkId); // scope to owner
   if (error) throw new Error('Failed to deactivate tracked thread');
+}
+
+// ── Thread update helpers ───────────────────────────────────────────────────
+
+export async function insertThreadUpdates(
+  clerkId: string,
+  updates: Array<{
+    threadId: string;
+    updateTitle: string;
+    summary: string;
+    significance: string;
+    source: string;
+    url?: string;
+    publishedDate?: string;
+  }>,
+): Promise<void> {
+  if (updates.length === 0) return;
+  const db = getServiceClient();
+  const rows = updates.map(u => ({
+    thread_id: u.threadId,
+    clerk_id: clerkId,
+    update_title: u.updateTitle,
+    summary: u.summary,
+    significance: u.significance,
+    source: u.source,
+    url: u.url ?? null,
+    published_date: u.publishedDate ?? null,
+  }));
+  const { error } = await db.from('thread_updates').insert(rows);
+  if (error) throw new Error('Failed to insert thread updates');
+}
+
+export async function getThreadUpdates(clerkId: string, threadId: string): Promise<ThreadUpdate[]> {
+  const db = getServiceClient();
+  const { data, error } = await db
+    .from('thread_updates')
+    .select('*')
+    .eq('clerk_id', clerkId)
+    .eq('thread_id', threadId)
+    .order('generated_at', { ascending: false });
+  if (error) throw new Error('Failed to fetch thread updates');
+  return data ?? [];
 }
 
 // ── Digest helpers ──────────────────────────────────────────────────────────

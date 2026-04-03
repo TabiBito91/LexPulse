@@ -3,13 +3,15 @@ import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getTrackedThread, getThreadUpdates } from '@/lib/supabase';
 
-export default async function ThreadHistoryPage({ params }: { params: { id: string } }) {
+export default async function ThreadHistoryPage({ params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
+  const { id } = await params;
+
   const [thread, updates] = await Promise.all([
-    getTrackedThread(userId, params.id),
-    getThreadUpdates(userId, params.id),
+    getTrackedThread(userId, id),
+    getThreadUpdates(userId, id),
   ]);
 
   if (!thread) notFound();

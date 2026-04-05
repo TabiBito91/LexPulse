@@ -80,6 +80,28 @@ export interface Digest {
   created_at: string;
 }
 
+// ── Multi-digest summary ────────────────────────────────────────────────────
+
+export interface SummaryTheme {
+  title: string;
+  description: string;  // 2-3 sentences on the cross-cutting theme
+}
+
+export interface TopicSummary {
+  topic: TopicArea;
+  overview: string;            // 2-3 sentences covering the period
+  keyDevelopments: string[];   // 3-5 concrete bullet points
+  trend: string;               // 1-2 sentences on the trajectory
+}
+
+export interface DigestSummary {
+  period: string;              // e.g. "March 3 – April 5, 2026"
+  digestCount: number;
+  themes: SummaryTheme[];      // 2-4 cross-cutting themes
+  byTopic: TopicSummary[];
+  generatedAt: string;         // ISO timestamp
+}
+
 export interface UserKey {
   id: string;
   clerk_id: string;

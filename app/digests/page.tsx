@@ -2,12 +2,19 @@ import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { getDigests } from '@/lib/supabase';
 import IssueCard from '@/components/IssueCard';
+import SummaryPanel from '@/components/SummaryPanel';
 
 export default async function DigestsPage() {
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 
   const digests = await getDigests(userId);
+
+  // Pass only id + weekOf to the client component — no digest content crosses the boundary
+  const digestOptions = digests.map((d) => ({
+    id: d.id,
+    weekOf: d.content?.weekOf ?? 'Weekly Digest',
+  }));
 
   return (
     <div className="space-y-6">
@@ -17,11 +24,14 @@ export default async function DigestsPage() {
           No digests yet. Go to the home page and click &ldquo;Generate digest&rdquo; to create your first one.
         </div>
       ) : (
-        <div className="space-y-2">
-          {digests.map((d) => (
-            <IssueCard key={d.id} digest={d} />
-          ))}
-        </div>
+        <>
+          <SummaryPanel digestOptions={digestOptions} />
+          <div className="space-y-2">
+            {digests.map((d) => (
+              <IssueCard key={d.id} digest={d} />
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

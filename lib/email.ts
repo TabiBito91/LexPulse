@@ -2,7 +2,7 @@
 import 'server-only';
 
 import { Resend } from 'resend';
-import type { DigestContent, FollowedTopicUpdate } from './types';
+import type { DigestContent, DigestSummary, FollowedTopicUpdate } from './types';
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://lex-pulse.com';
 
@@ -121,6 +121,92 @@ function buildEmailHtml(content: DigestContent): string {
   </div>
 </body>
 </html>`;
+}
+
+function buildSummaryEmailHtml(summary: DigestSummary): string {
+  const themesHtml = summary.themes
+    .map(
+      (t) => `
+      <div style="margin-bottom:16px;">
+        <p style="margin:0 0 4px;font-size:13px;font-weight:600;color:#111827;">${t.title}</p>
+        <p style="margin:0;font-size:12px;color:#374151;line-height:1.6;">${t.description}</p>
+      </div>`,
+    )
+    .join('');
+
+  const topicsHtml = summary.byTopic
+    .map((t) => {
+      const devsHtml = t.keyDevelopments
+        .map(
+          (d) =>
+            `<li style="margin-bottom:4px;font-size:12px;color:#374151;line-height:1.5;">${d}</li>`,
+        )
+        .join('');
+      return `
+      <div style="margin-bottom:24px;">
+        <h3 style="margin:0 0 8px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:4px;">
+          ${t.topic}
+        </h3>
+        <p style="margin:0 0 8px;font-size:12px;color:#374151;line-height:1.6;">${t.overview}</p>
+        <ul style="margin:0 0 8px;padding-left:18px;">${devsHtml}</ul>
+        <p style="margin:0;font-size:11px;color:#6b7280;line-height:1.5;font-style:italic;border-left:2px solid #e5e7eb;padding-left:8px;">
+          <strong style="font-style:normal;color:#4b5563;">Trend: </strong>${t.trend}
+        </p>
+      </div>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;">
+  <div style="max-width:600px;margin:32px auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:6px;overflow:hidden;">
+    <div style="padding:24px 32px;border-bottom:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:13px;font-weight:600;">LexPulse — Summary</p>
+      <p style="margin:4px 0 0;font-size:12px;color:#6b7280;">${summary.period}</p>
+      <p style="margin:2px 0 0;font-size:11px;color:#9ca3af;">Based on ${summary.digestCount} digest${summary.digestCount !== 1 ? 's' : ''}</p>
+    </div>
+    <div style="padding:24px 32px;">
+      <div style="margin-bottom:28px;">
+        <h2 style="margin:0 0 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">
+          Cross-Cutting Themes
+        </h2>
+        ${themesHtml}
+      </div>
+      <div>
+        <h2 style="margin:0 0 12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#6b7280;border-bottom:1px solid #e5e7eb;padding-bottom:6px;">
+          By Topic Area
+        </h2>
+        ${topicsHtml}
+      </div>
+    </div>
+    <div style="padding:16px 32px;border-top:1px solid #e5e7eb;">
+      <p style="margin:0;font-size:11px;color:#9ca3af;">
+        Generated ${new Date(summary.generatedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}
+      </p>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+export async function sendSummaryEmail(
+  toEmails: string | string[],
+  summary: DigestSummary,
+): Promise<void> {
+  const recipients = Array.isArray(toEmails) ? toEmails : [toEmails];
+  if (recipients.length === 0) throw new Error('No recipients provided');
+  const resend = getResendClient();
+  const { error } = await resend.emails.send({
+    from: getFromAddress(),
+    to: recipients,
+    subject: `LexPulse Summary — ${summary.period}`,
+    html: buildSummaryEmailHtml(summary),
+  });
+  if (error) {
+    console.error('[email] summary send error:', error.name, error.message);
+    throw new Error('Failed to send summary email');
+  }
 }
 
 export async function sendDigestEmail(

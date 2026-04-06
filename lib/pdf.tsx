@@ -1,601 +1,307 @@
+// SECURITY: server-only — must never be bundled client-side.
 import 'server-only';
 
-import React from 'react';
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  Link,
-  StyleSheet,
-  renderToBuffer,
-} from '@react-pdf/renderer';
-import type { DigestContent, DigestItem, DigestSection, DigestSummary, FollowedTopicUpdate } from './types';
+import PDFDocument from 'pdfkit';
+import type { DigestContent, DigestSummary } from './types';
 
-// ── Styles ──────────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-const S = StyleSheet.create({
-  page: {
-    fontFamily: 'Helvetica',
-    fontSize: 9,
-    paddingTop: 48,
-    paddingBottom: 64, // leave room for footer
-    paddingHorizontal: 48,
-    color: '#111827',
-  },
+const W = 612;          // US Letter width  (pts)
+const H = 792;          // US Letter height (pts)
+const M = 48;           // Page margin
+const CW = W - M * 2;  // Content width
+const BOT = 64;         // Bottom margin (leaves room for footer)
 
-  // Header
-  headerBrand: {
-    fontSize: 7,
-    color: '#9CA3AF',
-    letterSpacing: 2,
-    marginBottom: 5,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontFamily: 'Helvetica-Bold',
-    marginBottom: 4,
-  },
-  headerWeek: {
-    fontSize: 9,
-    color: '#6B7280',
-  },
-  headerDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#D1D5DB',
-    marginTop: 14,
-    marginBottom: 18,
-  },
+const C = {
+  black:  '#111827',
+  dark:   '#374151',
+  mid:    '#6B7280',
+  light:  '#9CA3AF',
+  border: '#E5E7EB',
+  divider:'#D1D5DB',
+  blue:   '#2563EB',
+  blueBorder: '#BFDBFE',
+};
 
-  // Section
-  section: {
-    marginBottom: 22,
-  },
-  sectionHeading: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#6B7280',
-    letterSpacing: 1.5,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingBottom: 4,
-    marginBottom: 10,
-  },
-  sectionHeadingFollowing: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#1D4ED8',
-    letterSpacing: 1.5,
-    borderBottomWidth: 1,
-    borderBottomColor: '#BFDBFE',
-    paddingBottom: 4,
-    marginBottom: 10,
-  },
+// ── Core helpers ──────────────────────────────────────────────────────────────
 
-  // Item
-  item: {
-    marginBottom: 14,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  itemLast: {
-    marginBottom: 0,
-    paddingBottom: 0,
-    borderBottomWidth: 0,
-  },
-  itemUpdateLabel: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#2563EB',
-    marginBottom: 3,
-  },
-  itemTitle: {
-    fontSize: 10.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-    lineHeight: 1.4,
-    marginBottom: 4,
-    textDecoration: 'none',
-  },
-  itemTitleLink: {
-    fontSize: 10.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-    lineHeight: 1.4,
-    marginBottom: 4,
-    textDecoration: 'none',
-  },
-  itemSummary: {
-    fontSize: 9,
-    color: '#374151',
-    lineHeight: 1.55,
-    marginBottom: 5,
-  },
-
-  // Significance
-  significanceRow: {
-    flexDirection: 'row',
-    marginBottom: 6,
-  },
-  significanceLabel: {
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#374151',
-  },
-  significanceText: {
-    fontSize: 8.5,
-    color: '#6B7280',
-    lineHeight: 1.5,
-    flex: 1,
-  },
-
-  // Source block — prominent for legal use
-  sourceBlock: {
-    backgroundColor: '#F9FAFB',
-    borderLeftWidth: 2,
-    borderLeftColor: '#D1D5DB',
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-    marginTop: 4,
-  },
-  sourceRow: {
-    flexDirection: 'row',
-    marginBottom: 3,
-  },
-  sourceLabel: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#6B7280',
-    width: 36,
-  },
-  sourceValue: {
-    fontSize: 7.5,
-    color: '#374151',
-    flex: 1,
-  },
-  sourceDate: {
-    fontSize: 7.5,
-    color: '#374151',
-    flex: 1,
-  },
-  sourceUrlRow: {
-    flexDirection: 'row',
-    marginTop: 1,
-  },
-  sourceUrlLabel: {
-    fontSize: 7,
-    fontFamily: 'Helvetica-Bold',
-    color: '#6B7280',
-    width: 36,
-  },
-  sourceUrl: {
-    fontSize: 7,
-    color: '#2563EB',
-    flex: 1,
-    textDecoration: 'underline',
-  },
-
-  // No-update items
-  noUpdateText: {
-    fontSize: 8,
-    color: '#9CA3AF',
-    fontFamily: 'Helvetica-Oblique',
-    marginBottom: 3,
-  },
-
-  // Footer
-  footer: {
-    position: 'absolute',
-    bottom: 28,
-    left: 48,
-    right: 48,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 6,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  footerLeft: {
-    fontSize: 7,
-    color: '#9CA3AF',
-  },
-  footerRight: {
-    fontSize: 7,
-    color: '#9CA3AF',
-  },
-  pageNumber: {
-    fontSize: 7,
-    color: '#9CA3AF',
-  },
-});
-
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-function SourceBlock({ source, date, url }: { source?: string; date?: string; url?: string }) {
-  if (!source && !date && !url) return null;
-  return (
-    <View style={S.sourceBlock}>
-      {source && (
-        <View style={S.sourceRow}>
-          <Text style={S.sourceLabel}>Source</Text>
-          <Text style={S.sourceValue}>{source}</Text>
-        </View>
-      )}
-      {date && (
-        <View style={S.sourceRow}>
-          <Text style={S.sourceLabel}>Date</Text>
-          <Text style={S.sourceDate}>{date}</Text>
-        </View>
-      )}
-      {url && (
-        <View style={S.sourceUrlRow}>
-          <Text style={S.sourceUrlLabel}>URL</Text>
-          <Link src={url} style={S.sourceUrl}>
-            {url}
-          </Link>
-        </View>
-      )}
-    </View>
-  );
+function createDoc(): PDFKit.PDFDocument {
+  return new PDFDocument({
+    size: 'LETTER',
+    bufferPages: true,   // keep all pages in memory so we can add footers at the end
+    margins: { top: M, bottom: BOT, left: M, right: M },
+  });
 }
 
-function DigestItemView({ item, isLast }: { item: DigestItem; isLast: boolean }) {
-  return (
-    <View style={isLast ? S.itemLast : S.item} wrap={false}>
-      {/* Title */}
-      {item.url ? (
-        <Link src={item.url} style={S.itemTitleLink}>
-          {item.title}
-        </Link>
-      ) : (
-        <Text style={S.itemTitle}>{item.title}</Text>
-      )}
-
-      {/* Summary */}
-      <Text style={S.itemSummary}>{item.summary}</Text>
-
-      {/* Significance */}
-      <View style={S.significanceRow}>
-        <Text style={S.significanceLabel}>Why it matters: </Text>
-        <Text style={S.significanceText}>{item.significance}</Text>
-      </View>
-
-      {/* Source block — full URL visible for print */}
-      <SourceBlock source={item.source} date={item.publishedDate} url={item.url} />
-    </View>
-  );
+function docToBuffer(doc: PDFKit.PDFDocument): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.end();
+  });
 }
 
-function CategorySectionView({ section }: { section: DigestSection }) {
-  return (
-    <View style={S.section} wrap={false}>
-      <Text style={S.sectionHeading}>{section.topic.toUpperCase()}</Text>
-      {section.items.map((item, i) => (
-        <DigestItemView key={i} item={item} isLast={i === section.items.length - 1} />
-      ))}
-    </View>
-  );
+/** Horizontal rule at current Y, then move down. */
+function rule(doc: PDFKit.PDFDocument, color = C.border): void {
+  doc
+    .moveTo(M, doc.y)
+    .lineTo(W - M, doc.y)
+    .strokeColor(color)
+    .lineWidth(0.5)
+    .stroke()
+    .moveDown(0.7);
 }
 
-function FollowedUpdateView({ update, isLast }: { update: FollowedTopicUpdate; isLast: boolean }) {
-  if (!update.hasUpdate) {
-    return (
-      <Text style={S.noUpdateText}>
-        No new developments: {update.originalTitle}
-      </Text>
-    );
+/** Uppercase section heading followed by a rule. */
+function sectionHeading(
+  doc: PDFKit.PDFDocument,
+  label: string,
+  textColor = C.mid,
+  lineColor = C.border,
+): void {
+  doc
+    .fontSize(7.5)
+    .font('Helvetica-Bold')
+    .fillColor(textColor)
+    .text(label.toUpperCase(), M, doc.y, { width: CW, characterSpacing: 1.2 })
+    .moveDown(0.15);
+  rule(doc, lineColor);
+}
+
+/**
+ * Source / Date / URL block — prominent for legal professionals.
+ * Shown below every digest item so sources are visible when printed.
+ */
+function sourceBlock(
+  doc: PDFKit.PDFDocument,
+  source?: string,
+  date?: string,
+  url?: string,
+): void {
+  if (!source && !date && !url) return;
+  doc.moveDown(0.3);
+
+  if (source) {
+    doc
+      .fontSize(7.5)
+      .font('Helvetica-Bold').fillColor(C.mid).text('Source  ', { continued: true })
+      .font('Helvetica').fillColor(C.dark).text(source, { width: CW });
   }
-  return (
-    <View style={isLast ? S.itemLast : S.item} wrap={false}>
-      <Text style={S.itemUpdateLabel}>Update on: {update.originalTitle}</Text>
-
-      {update.url ? (
-        <Link src={update.url} style={S.itemTitleLink}>
-          {update.updateTitle}
-        </Link>
-      ) : (
-        <Text style={S.itemTitle}>{update.updateTitle}</Text>
-      )}
-
-      {update.summary && <Text style={S.itemSummary}>{update.summary}</Text>}
-
-      {update.significance && (
-        <View style={S.significanceRow}>
-          <Text style={S.significanceLabel}>Why it matters: </Text>
-          <Text style={S.significanceText}>{update.significance}</Text>
-        </View>
-      )}
-
-      <SourceBlock source={update.source} date={update.publishedDate} url={update.url} />
-    </View>
-  );
+  if (date) {
+    doc
+      .fontSize(7.5)
+      .font('Helvetica-Bold').fillColor(C.mid).text('Date    ', { continued: true })
+      .font('Helvetica').fillColor(C.dark).text(date, { width: CW });
+  }
+  if (url) {
+    doc
+      .fontSize(7)
+      .font('Helvetica-Bold').fillColor(C.mid).text('URL     ', { continued: true })
+      .font('Helvetica').fillColor(C.blue).text(url, { link: url, underline: true, width: CW });
+  }
 }
 
-// ── Document ──────────────────────────────────────────────────────────────────
+/** One digest item: title, summary, significance, source block. */
+function drawItem(
+  doc: PDFKit.PDFDocument,
+  title: string,
+  summary: string,
+  significance: string,
+  source?: string,
+  date?: string,
+  url?: string,
+): void {
+  // Title — bold; hyperlinked when URL present
+  doc.fontSize(10.5).font('Helvetica-Bold').fillColor(C.black);
+  if (url) {
+    doc.text(title, M, doc.y, { width: CW, link: url });
+  } else {
+    doc.text(title, M, doc.y, { width: CW });
+  }
+  doc.moveDown(0.25);
 
-function DigestPDF({ content }: { content: DigestContent }) {
+  // Summary
+  doc
+    .fontSize(9).font('Helvetica').fillColor(C.dark)
+    .text(summary, M, doc.y, { width: CW, lineGap: 1.5 })
+    .moveDown(0.25);
+
+  // Significance — bold label inline with normal text
+  doc
+    .fontSize(8.5)
+    .font('Helvetica-Bold').fillColor(C.dark).text('Why it matters: ', { continued: true })
+    .font('Helvetica').fillColor(C.mid).text(significance, { width: CW, lineGap: 1.5 });
+
+  // Source / Date / URL
+  sourceBlock(doc, source, date, url);
+  doc.moveDown(0.9);
+}
+
+/**
+ * Add footers to every buffered page.
+ * Must be called after all content is written, before doc.end().
+ */
+function addFooters(
+  doc: PDFKit.PDFDocument,
+  leftText: string,
+  rightText: string,
+): void {
+  const { count } = doc.bufferedPageRange();
+  for (let i = 0; i < count; i++) {
+    doc.switchToPage(i);
+    const y = H - BOT + 16;
+
+    // Rule
+    doc
+      .moveTo(M, y - 8).lineTo(W - M, y - 8)
+      .strokeColor(C.border).lineWidth(0.5).stroke();
+
+    // Three text segments on the same Y — explicit y coordinate on each call
+    doc.fontSize(7).font('Helvetica').fillColor(C.light)
+      .text(leftText,           M, y, { width: CW, align: 'left',   lineBreak: false })
+      .text(`${i + 1} / ${count}`, M, y, { width: CW, align: 'center', lineBreak: false })
+      .text(rightText,          M, y, { width: CW, align: 'right',  lineBreak: false });
+  }
+}
+
+// ── Digest PDF ────────────────────────────────────────────────────────────────
+
+export async function renderDigestPDF(content: DigestContent): Promise<Buffer> {
+  const doc = createDoc();
+
   const generatedAt = new Date(content.generatedAt).toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
 
-  const hasFollowedUpdates =
-    content.followedUpdates && content.followedUpdates.length > 0;
+  // ── Header
+  doc
+    .fontSize(7).font('Helvetica').fillColor(C.light)
+    .text('LEXPULSE', M, M, { characterSpacing: 2 })
+    .moveDown(0.4);
+  doc.fontSize(17).font('Helvetica-Bold').fillColor(C.black)
+    .text('Legal Intelligence Digest').moveDown(0.3);
+  doc.fontSize(9).font('Helvetica').fillColor(C.mid)
+    .text(content.weekOf).moveDown(0.8);
+  rule(doc, C.divider);
 
-  return (
-    <Document
-      title={`LexPulse — ${content.weekOf}`}
-      author="LexPulse"
-      subject="Legal Intelligence Digest"
-    >
-      <Page size="LETTER" style={S.page}>
-        {/* Header */}
-        <View style={{ marginBottom: 0 }}>
-          <Text style={S.headerBrand}>LEXPULSE</Text>
-          <Text style={S.headerTitle}>Legal Intelligence Digest</Text>
-          <Text style={S.headerWeek}>{content.weekOf}</Text>
-          <View style={S.headerDivider} />
-        </View>
+  // ── Following section (if any)
+  if (content.followedUpdates?.length) {
+    sectionHeading(doc, 'Following', '#1D4ED8', C.blueBorder);
 
-        {/* Following section */}
-        {hasFollowedUpdates && (
-          <View style={S.section}>
-            <Text style={S.sectionHeadingFollowing}>FOLLOWING</Text>
-            {content.followedUpdates!.map((update, i) => (
-              <FollowedUpdateView
-                key={update.threadId}
-                update={update}
-                isLast={i === content.followedUpdates!.length - 1}
-              />
-            ))}
-          </View>
-        )}
+    for (const u of content.followedUpdates) {
+      if (!u.hasUpdate) {
+        doc
+          .fontSize(8).font('Helvetica-Oblique').fillColor(C.light)
+          .text(`No new developments: ${u.originalTitle}`, M, doc.y, { width: CW })
+          .moveDown(0.3);
+        continue;
+      }
+      doc
+        .fontSize(7.5).font('Helvetica-Bold').fillColor(C.blue)
+        .text(`Update on: ${u.originalTitle}`, M, doc.y, { width: CW })
+        .moveDown(0.2);
+      drawItem(
+        doc,
+        u.updateTitle ?? '',
+        u.summary ?? '',
+        u.significance ?? '',
+        u.source,
+        u.publishedDate,
+        u.url,
+      );
+    }
+  }
 
-        {/* Topic sections */}
-        {content.sections.map((section) => (
-          <CategorySectionView key={section.topic} section={section} />
-        ))}
+  // ── Topic sections
+  for (const section of content.sections) {
+    sectionHeading(doc, section.topic);
+    for (const entry of section.items) {
+      drawItem(doc, entry.title, entry.summary, entry.significance, entry.source, entry.publishedDate, entry.url);
+    }
+  }
 
-        {/* Footer */}
-        <View style={S.footer} fixed>
-          <Text style={S.footerLeft}>Generated {generatedAt}</Text>
-          <Text
-            style={S.pageNumber}
-            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
-          />
-          <Text style={S.footerRight}>LexPulse — Legal Intelligence</Text>
-        </View>
-      </Page>
-    </Document>
-  );
+  addFooters(doc, `Generated ${generatedAt}`, 'LexPulse — Legal Intelligence');
+  return docToBuffer(doc);
 }
 
 // ── Summary PDF ───────────────────────────────────────────────────────────────
 
-const SS = StyleSheet.create({
-  page: {
-    fontFamily: 'Helvetica',
-    fontSize: 9,
-    paddingTop: 48,
-    paddingBottom: 64,
-    paddingHorizontal: 48,
-    color: '#111827',
-  },
-  headerBrand: {
-    fontSize: 7,
-    color: '#9CA3AF',
-    letterSpacing: 2,
-    marginBottom: 5,
-  },
-  headerTitle: {
-    fontSize: 17,
-    fontFamily: 'Helvetica-Bold',
-    marginBottom: 4,
-  },
-  headerSub: {
-    fontSize: 9,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  headerDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: '#D1D5DB',
-    marginTop: 14,
-    marginBottom: 18,
-  },
-  // Themes section
-  sectionHeading: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#6B7280',
-    letterSpacing: 1.5,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingBottom: 4,
-    marginBottom: 10,
-  },
-  themeBlock: {
-    marginBottom: 12,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  themeBlockLast: {
-    marginBottom: 18,
-  },
-  themeTitle: {
-    fontSize: 10,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-    marginBottom: 3,
-  },
-  themeDesc: {
-    fontSize: 9,
-    color: '#374151',
-    lineHeight: 1.55,
-  },
-  // Topic section
-  topicBlock: {
-    marginBottom: 18,
-  },
-  topicHeading: {
-    fontSize: 8.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#111827',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
-    paddingBottom: 3,
-    marginBottom: 7,
-  },
-  topicOverview: {
-    fontSize: 9,
-    color: '#374151',
-    lineHeight: 1.55,
-    marginBottom: 7,
-  },
-  devLabel: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#6B7280',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  devRow: {
-    flexDirection: 'row',
-    marginBottom: 3,
-  },
-  devBullet: {
-    fontSize: 9,
-    color: '#4B5563',
-    width: 12,
-  },
-  devText: {
-    fontSize: 9,
-    color: '#374151',
-    lineHeight: 1.5,
-    flex: 1,
-  },
-  trendRow: {
-    flexDirection: 'row',
-    marginTop: 6,
-    backgroundColor: '#F9FAFB',
-    borderLeftWidth: 2,
-    borderLeftColor: '#D1D5DB',
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-  },
-  trendLabel: {
-    fontSize: 7.5,
-    fontFamily: 'Helvetica-Bold',
-    color: '#6B7280',
-    width: 38,
-  },
-  trendText: {
-    fontSize: 8.5,
-    color: '#374151',
-    lineHeight: 1.5,
-    flex: 1,
-    fontFamily: 'Helvetica-Oblique',
-  },
-  footer: {
-    position: 'absolute',
-    bottom: 28,
-    left: 48,
-    right: 48,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    paddingTop: 6,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  footerText: {
-    fontSize: 7,
-    color: '#9CA3AF',
-  },
-  pageNumber: {
-    fontSize: 7,
-    color: '#9CA3AF',
-  },
-});
+export async function renderSummaryPDF(summary: DigestSummary): Promise<Buffer> {
+  const doc = createDoc();
 
-function SummaryPDF({ summary }: { summary: DigestSummary }) {
   const generatedAt = new Date(summary.generatedAt).toLocaleString('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   });
 
-  return (
-    <Document
-      title={`LexPulse Summary — ${summary.period}`}
-      author="LexPulse"
-      subject="Legal Intelligence Summary"
-    >
-      <Page size="LETTER" style={SS.page}>
-        {/* Header */}
-        <Text style={SS.headerBrand}>LEXPULSE</Text>
-        <Text style={SS.headerTitle}>Legal Intelligence Summary</Text>
-        <Text style={SS.headerSub}>{summary.period}</Text>
-        <Text style={SS.headerSub}>
-          Based on {summary.digestCount} digest{summary.digestCount !== 1 ? 's' : ''}
-        </Text>
-        <View style={SS.headerDivider} />
+  // ── Header
+  doc
+    .fontSize(7).font('Helvetica').fillColor(C.light)
+    .text('LEXPULSE', M, M, { characterSpacing: 2 })
+    .moveDown(0.4);
+  doc.fontSize(17).font('Helvetica-Bold').fillColor(C.black)
+    .text('Legal Intelligence Summary').moveDown(0.3);
+  doc.fontSize(9).font('Helvetica').fillColor(C.mid)
+    .text(summary.period).moveDown(0.2);
+  doc.fontSize(9).fillColor(C.light)
+    .text(`Based on ${summary.digestCount} digest${summary.digestCount !== 1 ? 's' : ''}`)
+    .moveDown(0.8);
+  rule(doc, C.divider);
 
-        {/* Cross-cutting themes */}
-        <Text style={SS.sectionHeading}>CROSS-CUTTING THEMES</Text>
-        {summary.themes.map((theme, i) => (
-          <View
-            key={i}
-            style={i === summary.themes.length - 1 ? SS.themeBlockLast : SS.themeBlock}
-            wrap={false}
-          >
-            <Text style={SS.themeTitle}>{theme.title}</Text>
-            <Text style={SS.themeDesc}>{theme.description}</Text>
-          </View>
-        ))}
+  // ── Cross-cutting themes
+  sectionHeading(doc, 'Cross-Cutting Themes');
+  for (const theme of summary.themes) {
+    doc
+      .fontSize(10).font('Helvetica-Bold').fillColor(C.black)
+      .text(theme.title, M, doc.y, { width: CW })
+      .moveDown(0.2);
+    doc
+      .fontSize(9).font('Helvetica').fillColor(C.dark)
+      .text(theme.description, M, doc.y, { width: CW, lineGap: 1.5 })
+      .moveDown(0.8);
+  }
 
-        {/* Per-topic summaries */}
-        <Text style={SS.sectionHeading}>BY TOPIC AREA</Text>
-        {summary.byTopic.map((t) => (
-          <View key={t.topic} style={SS.topicBlock} wrap={false}>
-            <Text style={SS.topicHeading}>{t.topic.toUpperCase()}</Text>
-            <Text style={SS.topicOverview}>{t.overview}</Text>
+  // ── By topic area
+  sectionHeading(doc, 'By Topic Area');
+  for (const t of summary.byTopic) {
+    // Topic heading + rule
+    doc
+      .fontSize(8.5).font('Helvetica-Bold').fillColor(C.black)
+      .text(t.topic.toUpperCase(), M, doc.y, { width: CW, characterSpacing: 0.5 })
+      .moveDown(0.15);
+    rule(doc, C.border);
 
-            <Text style={SS.devLabel}>KEY DEVELOPMENTS</Text>
-            {t.keyDevelopments.map((dev, i) => (
-              <View key={i} style={SS.devRow}>
-                <Text style={SS.devBullet}>•</Text>
-                <Text style={SS.devText}>{dev}</Text>
-              </View>
-            ))}
+    // Overview
+    doc
+      .fontSize(9).font('Helvetica').fillColor(C.dark)
+      .text(t.overview, M, doc.y, { width: CW, lineGap: 1.5 })
+      .moveDown(0.4);
 
-            <View style={SS.trendRow}>
-              <Text style={SS.trendLabel}>Trend</Text>
-              <Text style={SS.trendText}>{t.trend}</Text>
-            </View>
-          </View>
-        ))}
+    // Key developments
+    doc
+      .fontSize(7.5).font('Helvetica-Bold').fillColor(C.mid)
+      .text('KEY DEVELOPMENTS', M, doc.y, { characterSpacing: 0.8 })
+      .moveDown(0.3);
 
-        {/* Footer */}
-        <View style={SS.footer} fixed>
-          <Text style={SS.footerText}>Generated {generatedAt}</Text>
-          <Text
-            style={SS.pageNumber}
-            render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
-          />
-          <Text style={SS.footerText}>LexPulse — Legal Intelligence</Text>
-        </View>
-      </Page>
-    </Document>
-  );
-}
+    for (const dev of t.keyDevelopments) {
+      doc
+        .fontSize(9).font('Helvetica').fillColor(C.dark)
+        .text(`•  ${dev}`, M + 6, doc.y, { width: CW - 6, lineGap: 1.5 })
+        .moveDown(0.2);
+    }
 
-// ── Public API ────────────────────────────────────────────────────────────────
+    // Trend — italic, inline bold label
+    doc.moveDown(0.3);
+    doc
+      .fontSize(8.5)
+      .font('Helvetica-Bold').fillColor(C.mid).text('Trend  ', { continued: true })
+      .font('Helvetica-Oblique').fillColor(C.dark).text(t.trend, { width: CW, lineGap: 1.5 });
+    doc.moveDown(1);
+  }
 
-export async function renderDigestPDF(content: DigestContent): Promise<Buffer> {
-  return renderToBuffer(<DigestPDF content={content} />);
-}
-
-export async function renderSummaryPDF(summary: DigestSummary): Promise<Buffer> {
-  return renderToBuffer(<SummaryPDF summary={summary} />);
+  addFooters(doc, `Generated ${generatedAt}`, 'LexPulse — Legal Intelligence');
+  return docToBuffer(doc);
 }

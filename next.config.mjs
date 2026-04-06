@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['@react-pdf/renderer', 'canvas'],
+  serverExternalPackages: ['pdfkit'],
   async headers() {
     return [
       {

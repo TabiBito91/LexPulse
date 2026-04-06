@@ -152,6 +152,9 @@ function addFooters(
   const { count } = doc.bufferedPageRange();
   for (let i = 0; i < count; i++) {
     doc.switchToPage(i);
+    // Disable the bottom margin guard so drawing in the footer zone
+    // doesn't trigger pdfkit's auto-page-break and create blank pages.
+    doc.page.margins.bottom = 0;
     const y = H - BOT + 16;
 
     // Rule
@@ -164,6 +167,7 @@ function addFooters(
       .text(leftText,           M, y, { width: CW, align: 'left',   lineBreak: false })
       .text(`${i + 1} / ${count}`, M, y, { width: CW, align: 'center', lineBreak: false })
       .text(rightText,          M, y, { width: CW, align: 'right',  lineBreak: false });
+    doc.page.margins.bottom = BOT; // restore
   }
 }
 

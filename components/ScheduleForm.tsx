@@ -43,6 +43,13 @@ function buildTimezoneOptions(current: string) {
   return [{ value: current, label: current }, ...COMMON_TIMEZONES];
 }
 
+const PAUSE_OPTIONS = [
+  { label: '1 week',   days: 7 },
+  { label: '2 weeks',  days: 14 },
+  { label: '1 month',  days: 30 },
+  { label: '3 months', days: 90 },
+];
+
 interface ScheduleFormProps {
   initial: {
     emailEnabled: boolean;
@@ -52,6 +59,7 @@ interface ScheduleFormProps {
     digestMinute: number;
     timezone: string;
     digestFrequency: DigestFrequency;
+    pausedUntil: string | null;
   };
 }
 
@@ -66,6 +74,11 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
   const [timezone, setTimezone]               = useState(() => initial.timezone || detectTimezone());
   const [digestFrequency, setDigestFrequency] = useState<DigestFrequency>(initial.digestFrequency);
   const [status, setStatus]                   = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [pausedUntil, setPausedUntilState]    = useState<string | null>(initial.pausedUntil);
+  const [pauseDays, setPauseDays]             = useState(PAUSE_OPTIONS[0].days);
+  const [pauseStatus, setPauseStatus]         = useState<'idle' | 'saving' | 'error'>('idle');
+
+  const isPaused = pausedUntil !== null && new Date(pausedUntil) > new Date();
 
   const timezoneOptions = buildTimezoneOptions(timezone);
 
@@ -87,6 +100,46 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
 
   function removeEmail(email: string) {
     setNotifyEmails(prev => prev.filter(e => e !== email));
+  }
+
+  async function handlePause() {
+    setPauseStatus('saving');
+    const resumeAt = new Date();
+    resumeAt.setDate(resumeAt.getDate() + pauseDays);
+    try {
+      const res = await fetch('/api/settings/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pausedUntil: resumeAt.toISOString() }),
+      });
+      if (res.ok) {
+        setPausedUntilState(resumeAt.toISOString());
+        setPauseStatus('idle');
+      } else {
+        setPauseStatus('error');
+      }
+    } catch {
+      setPauseStatus('error');
+    }
+  }
+
+  async function handleResume() {
+    setPauseStatus('saving');
+    try {
+      const res = await fetch('/api/settings/pause', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pausedUntil: null }),
+      });
+      if (res.ok) {
+        setPausedUntilState(null);
+        setPauseStatus('idle');
+      } else {
+        setPauseStatus('error');
+      }
+    } catch {
+      setPauseStatus('error');
+    }
   }
 
   async function handleSave() {
@@ -249,6 +302,46 @@ export default function ScheduleForm({ initial }: ScheduleFormProps) {
               ? 'The first digest will be sent at the next matching time today or tomorrow.'
               : `The first digest will be sent on the next matching ${DAYS[digestDay]}.`}
           </p>
+
+          <div className="border-t border-gray-100 pt-3 space-y-2">
+            <p className="text-xs font-medium text-gray-500">Pause automatic digests</p>
+            {isPaused ? (
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm text-amber-700">
+                  Paused until {new Date(pausedUntil!).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+                <button
+                  onClick={handleResume}
+                  disabled={pauseStatus === 'saving'}
+                  className="text-sm px-3 py-1 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {pauseStatus === 'saving' ? 'Resuming…' : 'Resume now'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <select
+                  value={pauseDays}
+                  onChange={(e) => setPauseDays(Number(e.target.value))}
+                  className="border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {PAUSE_OPTIONS.map(({ label, days }) => (
+                    <option key={days} value={days}>{label}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={handlePause}
+                  disabled={pauseStatus === 'saving'}
+                  className="text-sm px-3 py-1.5 border border-gray-300 rounded hover:bg-gray-50 disabled:opacity-50"
+                >
+                  {pauseStatus === 'saving' ? 'Pausing…' : 'Pause'}
+                </button>
+              </div>
+            )}
+            {pauseStatus === 'error' && (
+              <p className="text-xs text-red-500">Failed to update — please try again.</p>
+            )}
+          </div>
         </div>
       )}
 

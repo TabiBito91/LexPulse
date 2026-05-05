@@ -99,6 +99,7 @@ ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS notify_emails    text[] NOT N
 ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS timezone         text NOT NULL DEFAULT 'UTC';
 ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS digest_frequency text NOT NULL DEFAULT 'weekly';
 ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS next_run_at      timestamptz;
+ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS paused_until     timestamptz;
 
 ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 

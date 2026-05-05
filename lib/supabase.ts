@@ -118,9 +118,19 @@ export async function getUsersScheduledNow(): Promise<
     .select('clerk_id, notify_email, notify_emails, next_run_at, digest_frequency')
     .eq('email_enabled', true)
     .not('next_run_at', 'is', null)
-    .lte('next_run_at', now);
+    .lte('next_run_at', now)
+    .or(`paused_until.is.null,paused_until.lte.${now}`);
   if (error) throw new Error('Failed to fetch scheduled users');
   return data ?? [];
+}
+
+export async function setPausedUntil(clerkId: string, pausedUntil: Date | null): Promise<void> {
+  const db = getServiceClient();
+  const { error } = await db
+    .from('user_settings')
+    .update({ paused_until: pausedUntil ? pausedUntil.toISOString() : null, updated_at: new Date().toISOString() })
+    .eq('clerk_id', clerkId);
+  if (error) throw new Error('Failed to update paused_until');
 }
 
 export async function updateNextRunAt(clerkId: string, nextRunAt: Date): Promise<void> {

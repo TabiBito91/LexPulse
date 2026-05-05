@@ -123,6 +123,7 @@ export interface UserSettings {
   timezone: string;                   // IANA timezone e.g. "America/New_York"
   digest_frequency: DigestFrequency;  // how often to send
   next_run_at: string | null;         // UTC ISO timestamp of next scheduled run
+  paused_until: string | null;        // if set and in the future, cron skips this user until then
   preferred_sites: string[];          // domains to prioritise in searches e.g. ["reuters.com"]
   created_at: string;
   updated_at: string;

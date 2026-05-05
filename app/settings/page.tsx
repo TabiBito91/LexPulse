@@ -31,6 +31,7 @@ export default async function SettingsPage() {
           digestMinute: settings?.digest_minute ?? 0,
           timezone: settings?.timezone ?? '',
           digestFrequency: settings?.digest_frequency ?? 'weekly',
+          pausedUntil: settings?.paused_until ?? null,
         }}
       />
 
